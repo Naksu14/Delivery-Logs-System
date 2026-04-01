@@ -4,8 +4,8 @@ export class CreateDeliveryDto {
 	@IsDateString()
 	date_received: string;
 
-	@IsNumber()
-	company_id: number;
+	@IsString()
+	company_name: string;
 
 	@IsString()
 	delivery_type: string;

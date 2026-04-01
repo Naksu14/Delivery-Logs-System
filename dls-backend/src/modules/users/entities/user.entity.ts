@@ -14,7 +14,7 @@ export class User {
 	@Column({ type: 'varchar', length: 200 })
 	password: string;
 
-	@Column({ type: 'varchar', length: 50, default: 'receptionist' })
+	@Column({ type: 'varchar', length: 50, default: 'admin' })
 	role: string;
 
 	@CreateDateColumn({ type: 'timestamp' })

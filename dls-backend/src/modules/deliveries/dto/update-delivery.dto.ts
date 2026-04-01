@@ -6,8 +6,8 @@ export class UpdateDeliveryDto {
 	date_received?: string;
 
 	@IsOptional()
-	@IsNumber()
-	company_id?: number;
+	@IsString()
+	company_name?: string;
 
 	@IsOptional()
 	@IsString()

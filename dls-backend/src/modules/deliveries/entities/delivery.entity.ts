@@ -8,8 +8,8 @@ export class Delivery {
   @Column({ type: 'date' })
   date_received: string;
 
-  @Column({ type: 'int' })
-  company_id: number;
+  @Column({ type: 'varchar', length: 255 })
+  company_name: string;
 
   @Column({ type: 'varchar', length: 50 })
   delivery_type: string;
