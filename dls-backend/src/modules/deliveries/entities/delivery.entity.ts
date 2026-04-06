@@ -17,19 +17,19 @@ export class Delivery {
   @Column({ type: 'varchar', length: 50 })
   delivery_partner: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   courier_type_name: string;
 
   @Column({ type: 'text', nullable: true })
   supplier_description?: string;
 
-  @Column({ type: 'varchar', length: 200 })
+  @Column({ type: 'varchar', length: 200, nullable: true })
   deliverer_name: string;
 
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: 'varchar', length: 50, default: 'Pending' })
   is_status: string;
 
   @Column({ type: 'varchar', length: 200, nullable: true })

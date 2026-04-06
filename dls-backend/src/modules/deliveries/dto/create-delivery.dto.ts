@@ -13,16 +13,16 @@ export class CreateDeliveryDto {
 	@IsString()
 	delivery_partner: string;
 
+	@IsOptional()
 	@IsString()
-	@IsNotEmpty()
 	courier_type_name: string;
 
 	@IsOptional()
 	@IsString()
 	supplier_description?: string;
 
+	@IsOptional()
 	@IsString()
-	@IsNotEmpty()
 	deliverer_name: string;
 
 	@IsOptional()
@@ -30,7 +30,7 @@ export class CreateDeliveryDto {
 	description?: string;
 
 	@IsString()
-	@IsIn(['Received', 'Release'])
+	@IsIn(['Pending', 'Released'])
 	is_status: string;
 
 	@IsOptional()
