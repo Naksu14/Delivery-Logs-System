@@ -55,8 +55,10 @@ const COLORS = {
 
 const initialForm = {
   dateReceived: new Date().toISOString().slice(0, 10),
+  deliveryFor: 'Company',
   companyId: '',
   companyNameManual: '',
+  recipientName: '',
   deliveryType: '',
   deliveryPartner: '',
   courierTypeName: '',
@@ -275,11 +277,12 @@ export default function KioskForms() {
   }, [formData])
 
   const summaryData = useMemo(() => {
+    const isCompanyDelivery = formData.deliveryFor === 'Company'
     const selectedCompany = companies.find((company) => String(company?.id) === String(formData.companyId))
     const companyDisplayName =
-      formData.companyId === 'Not Listed'
+      isCompanyDelivery && formData.companyId === 'Not Listed'
         ? formData.companyNameManual
-        : selectedCompany
+        : isCompanyDelivery && selectedCompany
           ? getCompanyLabel(selectedCompany)
           : ''
 
@@ -293,6 +296,16 @@ export default function KioskForms() {
   const onChange = (event) => {
     const { name, value } = event.target
     setSubmitted(false)
+
+    if (name === 'deliveryFor') {
+      setFormData((prev) => ({
+        ...prev,
+        deliveryFor: value,
+        companyId: value === 'Company' ? prev.companyId : '',
+        companyNameManual: value === 'Company' ? prev.companyNameManual : ''
+      }))
+      return
+    }
 
     if (name === 'companyId') {
       setFormData((prev) => ({
@@ -318,27 +331,41 @@ export default function KioskForms() {
 
   const openSummary = (event) => {
     event.preventDefault()
-    setShowSummary(true)
+    const activeElement = document.activeElement
+    if (activeElement instanceof HTMLElement) {
+      activeElement.blur()
+    }
+    setTimeout(() => {
+      setShowSummary(true)
+    }, 0)
   }
 
   const submitForm = () => {
     setShowSummary(false)
 
-    const selectedCompany = companies.find(c => c.id === Number(formData.companyId));
+    const selectedCompany = companies.find((company) => company.id === Number(formData.companyId))
+    const companyNameValue =
+      formData.deliveryFor === 'Individual'
+        ? formData.recipientName.trim()
+        : formData.companyId === 'Not Listed'
+          ? formData.companyNameManual
+          : selectedCompany
+            ? getCompanyLabel(selectedCompany)
+            : ''
 
     const logData = {
       date_received: formData.dateReceived,
-      company_name: formData.companyId === 'Not Listed' 
-        ? formData.companyNameManual 
-        : (selectedCompany ? getCompanyLabel(selectedCompany) : ''),
+      delivery_for: formData.deliveryFor,
+      recipient_name: formData.recipientName,
+      company_name: companyNameValue,
       delivery_type: formData.deliveryType,
       delivery_partner: formData.deliveryPartner,
       courier_type_name: formData.courierTypeName,
       supplier_description: formData.supplierDescription,
       deliverer_name: formData.delivererName,
       description: formData.description,
-      is_status: formData.is_status,
-    };
+      is_status: formData.is_status
+    }
 
     createLogMutation.mutate(logData)
   }
@@ -390,6 +417,16 @@ export default function KioskForms() {
             <Box sx={{ pb: 4, borderBottom: '1px solid #e8e8e8' }}>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
+                <FieldLabel icon={BusinessRounded} text="Delivery For" required />
+                <FormControl fullWidth sx={fieldSx}>
+                  <Select name="deliveryFor" value={formData.deliveryFor} onChange={onChange} required>
+                    <MenuItem value="Company">Company</MenuItem>
+                    <MenuItem value="Individual">Individual</MenuItem>
+                  </Select>
+                </FormControl>
+              </div>
+
+              <div>
                 <FieldLabel icon={CalendarMonthRounded} text="Date Received" required />
                 <TextField
                   fullWidth
@@ -407,56 +444,82 @@ export default function KioskForms() {
                   }}
                 />
               </div>
+              </div>
 
-              <div>
-                <FieldLabel icon={BusinessRounded} text="Company" required />
-                <FormControl fullWidth sx={fieldSx}>
-                  <Select
-                    name="companyId"
-                    value={formData.companyId}
-                    onChange={onChange}
-                    displayEmpty
-                    required
-                    disabled={isCompaniesLoading}
-                  >
-                    <MenuItem value="" disabled>
-                      {isCompaniesLoading ? 'Loading companies...' : companySelectPlaceholder}
-                    </MenuItem>
-                    {companies.map((company) => (
-                      <MenuItem key={company.id} value={String(company.id)}>
-                        {getCompanyLabel(company)}
-                      </MenuItem>
-                    ))}
-                    <MenuItem value="Not Listed">Not Listed</MenuItem>
-                  </Select>
-                </FormControl>
-                {isCompaniesError && (
-                  <Typography sx={{ mt: 1, fontSize: '0.9rem', color: '#b45309' }}>
-                    Could not load companies. You can still use Not Listed.
-                  </Typography>
+              <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ minHeight: '132px' }}>
+                {formData.deliveryFor === 'Company' ? (
+                  <div>
+                    <FieldLabel icon={BusinessRounded} text="Company" required />
+                    <FormControl fullWidth sx={fieldSx}>
+                      <Select
+                        name="companyId"
+                        value={formData.companyId}
+                        onChange={onChange}
+                        displayEmpty
+                        required={formData.deliveryFor === 'Company'}
+                        disabled={isCompaniesLoading}
+                      >
+                        <MenuItem value="" disabled>
+                          {isCompaniesLoading ? 'Loading companies...' : companySelectPlaceholder}
+                        </MenuItem>
+                        {companies.map((company) => (
+                          <MenuItem key={company.id} value={String(company.id)}>
+                            {getCompanyLabel(company)}
+                          </MenuItem>
+                        ))}
+                        <MenuItem value="Not Listed">Not Listed</MenuItem>
+                      </Select>
+                    </FormControl>
+                    {isCompaniesError && (
+                      <Typography sx={{ mt: 1, fontSize: '0.9rem', color: '#b45309' }}>
+                        Could not load companies. You can still use Not Listed.
+                      </Typography>
+                    )}
+                    {formData.companyId === 'Not Listed' && (
+                      <TextField
+                        fullWidth
+                        name="companyNameManual"
+                        value={formData.companyNameManual}
+                        onChange={onChange}
+                        placeholder="Type company name (optional)"
+                        sx={{
+                          ...fieldSx,
+                          mt: 2
+                        }}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <BusinessRounded sx={{ color: COLORS.secondaryBrown }} />
+                            </InputAdornment>
+                          )
+                        }}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ visibility: 'hidden' }} aria-hidden="true" />
                 )}
-                {formData.companyId === 'Not Listed' && (
+
+                <div>
+                  <FieldLabel icon={PersonRounded} text="Recipient Name" required />
                   <TextField
                     fullWidth
-                    name="companyNameManual"
-                    value={formData.companyNameManual}
+                    name="recipientName"
+                    value={formData.recipientName}
                     onChange={onChange}
-                    placeholder="Type company name (optional)"
-                    sx={{
-                      ...fieldSx,
-                      mt: 2
-                    }}
+                    placeholder="Enter recipient name"
+                    required
+                    sx={fieldSx}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <BusinessRounded sx={{ color: COLORS.secondaryBrown }} />
+                          <PersonRounded sx={{ color: COLORS.primaryBrown }} />
                         </InputAdornment>
                       )
                     }}
                   />
-                )}
+                </div>
               </div>
-            </div>
             </Box>
 
             {/* Delivery Details Section */}

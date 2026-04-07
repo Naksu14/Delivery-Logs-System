@@ -14,7 +14,13 @@ export class DeliveriesService {
 
   async create(createDeliveryDto: CreateDeliveryDto): Promise<Delivery> {
     try {
-      const delivery = this.deliveryRepo.create(createDeliveryDto as any) as unknown as Delivery;
+      const normalizedDto = { ...createDeliveryDto };
+
+      if (normalizedDto.delivery_for === 'Individual' && !normalizedDto.company_name) {
+        normalizedDto.company_name = normalizedDto.recipient_name;
+      }
+
+      const delivery = this.deliveryRepo.create(normalizedDto as any) as unknown as Delivery;
       return await this.deliveryRepo.save(delivery);
     } catch (err: any) {
       if (err.code === 'ER_DUP_ENTRY') {
@@ -36,7 +42,13 @@ export class DeliveriesService {
 
   async update(id: number, updateDeliveryDto: UpdateDeliveryDto): Promise<Delivery> {
     const delivery = await this.findOne(id);
-    Object.assign(delivery, updateDeliveryDto);
+
+    const normalizedDto = { ...updateDeliveryDto };
+    if (normalizedDto.delivery_for === 'Individual') {
+      normalizedDto.company_name = normalizedDto.company_name || normalizedDto.recipient_name || delivery.company_name;
+    }
+
+    Object.assign(delivery, normalizedDto);
     return this.deliveryRepo.save(delivery);
   }
 

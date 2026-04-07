@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import SvgIcon from '@mui/material/SvgIcon'
+import { HiOutlineClock } from 'react-icons/hi2'
 import launchpadImg from '../../../assets/images/launchpad 2.png'
 import KioskBlobsBackground, { DEFAULT_BACKGROUND_GRADIENT, DEFAULT_BLOB_GRADIENT } from '../components/KioskBlobsBackground'
 
@@ -9,14 +9,6 @@ const COLOR_SECONDARY = '#333333'
 const COLOR_DIVIDER = '#dde847'
 const DIVIDER_LEFT_FADE = `linear-gradient(to right, transparent 0%, ${COLOR_DIVIDER} 100%)`
 const DIVIDER_RIGHT_FADE = `linear-gradient(to left, transparent 0%, ${COLOR_DIVIDER} 100%)`
-
-function HistoryRoundedIcon(props) {
-  return (
-    <SvgIcon {...props}>
-      <path d="M13 3a9 9 0 1 0 8.94 10h-2.02A7 7 0 1 1 13 5c1.93 0 3.68.78 4.95 2.05L15 10h6V4l-2.12 2.12A8.97 8.97 0 0 0 13 3zm-1 5v5l4.25 2.52.75-1.23-3.5-2.07V8H12z" />
-    </SvgIcon>
-  )
-}
 
 export default function KioskHome() {
   const navigate = useNavigate()
@@ -34,7 +26,7 @@ export default function KioskHome() {
           <span className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.38)_0%,rgba(255,255,255,0.12)_35%,transparent_60%)] translate-x-[-75%] transition-transform duration-700 group-hover:translate-x-[120%]" />
           <span className="relative z-10 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/10 text-base leading-none">
-              <HistoryRoundedIcon sx={{ fontSize: 18 }} />
+              <HiOutlineClock size={18} />
             </span>
           View History Logs
           </span>

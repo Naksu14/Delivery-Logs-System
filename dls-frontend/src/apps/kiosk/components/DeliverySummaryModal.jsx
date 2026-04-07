@@ -122,10 +122,26 @@ export default function DeliverySummaryModal({ open, onClose, onConfirm, summary
             </CardContent>
           </Card>
 
-          {/* Company Section */}
+          {/* Delivery For Section */}
           <Card sx={{ border: 'none', background: '#f9f9f9', boxShadow: 'none', borderRadius: '12px' }}>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <SummaryRow label="Company" value={summaryData.companyDisplayName || summaryData.companyNameManual} />
+              <SummaryRow label="Delivery For" value={summaryData.deliveryFor} />
+            </CardContent>
+          </Card>
+
+          {/* Company Section */}
+          {summaryData.deliveryFor === 'Company' && (
+            <Card sx={{ border: 'none', background: '#f9f9f9', boxShadow: 'none', borderRadius: '12px' }}>
+              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                <SummaryRow label="Company" value={summaryData.companyDisplayName || summaryData.companyNameManual} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Recipient Name */}
+          <Card sx={{ border: 'none', background: '#f9f9f9', boxShadow: 'none', borderRadius: '12px' }}>
+            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+              <SummaryRow label="Recipient Name" value={summaryData.recipientName} />
             </CardContent>
           </Card>
 
@@ -183,6 +199,7 @@ export default function DeliverySummaryModal({ open, onClose, onConfirm, summary
       {/* Modern Footer */}
       <DialogActions sx={{ p: 3, gap: 2, background: '#f9f9f9', borderTop: '1px solid #e8e8e8' }}>
         <Button 
+          autoFocus
           onClick={onClose} 
           variant="outlined" 
           sx={{ 

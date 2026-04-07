@@ -10,15 +10,14 @@ export default function KioskRoutes() {
 		const enterFullscreen = async () => {
 			try {
 				if (document.fullscreenElement) return
+				if (navigator.userActivation && !navigator.userActivation.isActive) return
 				if (document.documentElement.requestFullscreen) {
 					await document.documentElement.requestFullscreen()
 				}
 			} catch {
-				// Browser can block fullscreen until a user gesture; listeners below will retry.
+				// Ignore blocked fullscreen requests.
 			}
 		}
-
-		enterFullscreen()
 
 		const retryOnGesture = () => {
 			enterFullscreen()

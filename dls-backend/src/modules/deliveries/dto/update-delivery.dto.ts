@@ -7,6 +7,15 @@ export class UpdateDeliveryDto {
 
 	@IsOptional()
 	@IsString()
+	@IsIn(['Company', 'Individual'])
+	delivery_for?: string;
+
+	@IsOptional()
+	@IsString()
+	recipient_name?: string;
+
+	@IsOptional()
+	@IsString()
 	company_name?: string;
 
 	@IsOptional()
@@ -35,7 +44,7 @@ export class UpdateDeliveryDto {
 
 	@IsOptional()
 	@IsString()
-	@IsIn(['Received', 'Release'])
+	@IsIn(['Pending', 'Released'])
 	is_status?: string;
 
 	@IsOptional()
