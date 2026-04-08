@@ -16,9 +16,12 @@ export const createDeliveryLog = async (logData) => {
   }
 };
 
-export const getDeliveryLogs = async () => {
+export const getDeliveryLogs = async (params = {}) => {
   try {
-    const response = await api.get("/deliveries");
+    const cleanParams = Object.fromEntries(
+      Object.entries(params).filter(([, value]) => value !== '' && value !== null && value !== undefined)
+    );
+    const response = await api.get("/deliveries", { params: cleanParams });
     return response.data;
   } catch (error) {
     console.error("Error fetching delivery logs:", error);
@@ -38,7 +41,7 @@ export const getDeliveryLogById = async (logId) => {
 
 export const updateDeliveryLog = async (logId, logData) => {
     try {
-        const response = await api.put(`/deliveries/${logId}`, logData);
+        const response = await api.patch(`/deliveries/${logId}`, logData);
         return response.data;
     }
     catch (error) {

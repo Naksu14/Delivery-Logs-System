@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe, Query } from '@nestjs/common';
 import { DeliveriesService } from './deliveries.service';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
@@ -14,8 +14,8 @@ export class DeliveriesController {
   }
 
   @Get()
-  findAll() {
-    return this.deliveriesService.findAll();
+  findAll(@Query() query: Record<string, any>) {
+    return this.deliveriesService.findAll(query);
   }
 
   @Get(':id')

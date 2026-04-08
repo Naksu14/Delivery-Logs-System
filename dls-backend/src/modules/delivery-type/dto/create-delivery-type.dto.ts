@@ -1,4 +1,4 @@
-import { IsString, IsIn } from 'class-validator';
+import { IsString } from 'class-validator';
 
 export class CreateDeliveryTypeDto {
   @IsString()

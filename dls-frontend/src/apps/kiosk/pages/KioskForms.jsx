@@ -1,32 +1,29 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import Alert from '@mui/material/Alert'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import FormControl from '@mui/material/FormControl'
-import IconButton from '@mui/material/IconButton'
-import InputAdornment from '@mui/material/InputAdornment'
-import MenuItem from '@mui/material/MenuItem'
-import Select from '@mui/material/Select'
-import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
-import Typography from '@mui/material/Typography'
+import {
+  Alert,
+  Box,
+  Button,
+  FormControl,
+  IconButton,
+  InputAdornment,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+  Typography
+} from '@mui/material'
 
-import { ArrowBackRounded } from '@mui/icons-material'
-import { BusinessRounded } from '@mui/icons-material'
-import { CalendarMonthRounded } from '@mui/icons-material'
-import { DescriptionRounded } from '@mui/icons-material'
-import { Inventory2Rounded } from '@mui/icons-material'
-import { LocalShippingRounded } from '@mui/icons-material'
-import { PersonRounded } from '@mui/icons-material'
+import { FaBoxOpen, FaBuilding, FaRegFileAlt, FaTruck, FaUser } from 'react-icons/fa'
+import { IoArrowBack } from 'react-icons/io5'
 
 import { getCompanies } from '../../../services/companyAPIServices'
 import { getDeliveryPartners } from '../../../services/deliveryPartnersServices'
 import { getDeliveryTypes } from '../../../services/deliveryTypeServices'
 import { createDeliveryLog } from '../../../services/deliveriesServices'
 import DeliverySummaryModal from '../components/DeliverySummaryModal'
-import KioskBlobsBackground, { DEFAULT_BACKGROUND_GRADIENT, DEFAULT_BLOB_GRADIENT } from '../components/KioskBlobsBackground'
+import KioskBlobsBackground from '../components/KioskBlobsBackground'
 
 // ============================================================================
 // Colors & Design Tokens
@@ -54,7 +51,6 @@ const COLORS = {
 // ============================================================================
 
 const initialForm = {
-  dateReceived: new Date().toISOString().slice(0, 10),
   deliveryFor: 'Company',
   companyId: '',
   companyNameManual: '',
@@ -155,6 +151,23 @@ function prettyDate(value) {
   })
 }
 
+function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatCurrentDateTime(value = new Date()) {
+  return value.toLocaleString('en-US', {
+    month: 'long',
+    day: '2-digit',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  })
+}
+
 function FieldLabel({ icon: Icon, text, required = false }) {
   return (
     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5, color: COLORS.primaryBrown }}>
@@ -166,7 +179,7 @@ function FieldLabel({ icon: Icon, text, required = false }) {
           color: '#dde847',
           fontSize: '1.2rem'
         }}>
-          <Icon fontSize="small" />
+          <Icon size={18} />
         </Box>
       )}
       <Typography sx={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.3px' }}>
@@ -175,6 +188,12 @@ function FieldLabel({ icon: Icon, text, required = false }) {
       </Typography>
     </Stack>
   )
+}
+
+function isRenderableComponent(component) {
+  if (typeof component === 'function') return true
+  if (typeof component === 'object' && component !== null && component.$$typeof) return true
+  return false
 }
 
 // ============================================================================
@@ -186,9 +205,24 @@ export default function KioskForms() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [formData, setFormData] = useState(initialForm)
+  const [currentNow, setCurrentNow] = useState(() => new Date())
   const [showSummary, setShowSummary] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const dateInputRef = React.useRef(null)
+  const canRenderBlobs = isRenderableComponent(KioskBlobsBackground)
+  const canRenderSummaryModal = isRenderableComponent(DeliverySummaryModal)
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setCurrentNow(new Date())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [])
+
+  const currentDateReceived = useMemo(() => getLocalDateString(currentNow), [currentNow])
+  const currentDateTimeLabel = useMemo(() => formatCurrentDateTime(currentNow), [currentNow])
 
   const {
     data: companies = [],
@@ -289,9 +323,9 @@ export default function KioskForms() {
     return {
       ...formData,
       companyDisplayName,
-      dateReceivedPretty: prettyDate(formData.dateReceived)
+      dateReceivedPretty: prettyDate(currentDateReceived)
     }
-  }, [formData, companies])
+  }, [formData, companies, currentDateReceived])
 
   const onChange = (event) => {
     const { name, value } = event.target
@@ -342,6 +376,7 @@ export default function KioskForms() {
 
   const submitForm = () => {
     setShowSummary(false)
+    const submittedAt = new Date()
 
     const selectedCompany = companies.find((company) => company.id === Number(formData.companyId))
     const companyNameValue =
@@ -354,7 +389,7 @@ export default function KioskForms() {
             : ''
 
     const logData = {
-      date_received: formData.dateReceived,
+      date_received: submittedAt.toISOString(),
       delivery_for: formData.deliveryFor,
       recipient_name: formData.recipientName,
       company_name: companyNameValue,
@@ -364,7 +399,8 @@ export default function KioskForms() {
       supplier_description: formData.supplierDescription,
       deliverer_name: formData.delivererName,
       description: formData.description,
-      is_status: formData.is_status
+      is_status: formData.is_status,
+      received_at: submittedAt.toISOString()
     }
 
     createLogMutation.mutate(logData)
@@ -372,7 +408,7 @@ export default function KioskForms() {
 
   return (
     <div className="fixed inset-0 overflow-auto" style={{ backgroundColor: COLORS.backgroundColor }}>
-      <KioskBlobsBackground backgroundGradient={DEFAULT_BACKGROUND_GRADIENT} blobGradient={DEFAULT_BLOB_GRADIENT} opacity={0.8} />
+      {canRenderBlobs ? <KioskBlobsBackground opacity={0.8} /> : null}
 
       <div className="relative z-10 min-h-full px-5 py-6 sm:px-10 lg:px-16">
         <div className="mb-8 flex items-center gap-4">
@@ -395,7 +431,7 @@ export default function KioskForms() {
               }
             }}
           >
-            <ArrowBackRounded />
+            <IoArrowBack size={24} />
           </IconButton>
           <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: COLORS.primaryBrown }}>
             Back
@@ -403,21 +439,42 @@ export default function KioskForms() {
         </div>
 
         <div className="mx-auto w-full max-w-5xl rounded-[20px] shadow-[0_12px_32px_rgba(0,0,0,0.08)] p-6 sm:p-8" style={{ border: `1px solid #e8e8e8`, backgroundColor: '#ffffff' }}>
-          <div className="mb-8">
-            <Typography sx={{ fontSize: '1.8rem', fontWeight: 900, color: COLORS.primaryBrown, mb: 1 }}>
-              Delivery Details
-            </Typography>
-            <Typography sx={{ fontSize: '0.95rem', color: COLORS.textMuted, fontWeight: 500 }}>
-              Fill in the required information to record this delivery
-            </Typography>
+          <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <Typography sx={{ fontSize: '1.8rem', fontWeight: 900, color: COLORS.primaryBrown, mb: 1 }}>
+                Delivery Details
+              </Typography>
+              <Typography sx={{ fontSize: '0.95rem', color: COLORS.textMuted, fontWeight: 500 }}>
+                Fill in the required information to record this delivery
+              </Typography>
+            </div>
+
+            <Box
+              sx={{
+                alignSelf: { xs: 'flex-start', sm: 'flex-end' },
+                background: '#f8faf1',
+                border: '1px solid #e4eb9f',
+                borderRadius: '12px',
+                px: 2,
+                py: 1,
+                textAlign: 'right',
+              }}
+            >
+              <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Date Received
+              </Typography>
+              <Typography sx={{ fontSize: '0.92rem', fontWeight: 700, color: '#111827' }}>
+                {currentDateTimeLabel}
+              </Typography>
+            </Box>
           </div>
 
           <form onSubmit={openSummary} className="space-y-6">
             {/* Recipient Information Section */}
             <Box sx={{ pb: 4, borderBottom: '1px solid #e8e8e8' }}>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2  gap-4">
               <div>
-                <FieldLabel icon={BusinessRounded} text="Delivery For" required />
+                <FieldLabel icon={FaBuilding} text="Delivery For" required />
                 <FormControl fullWidth sx={fieldSx}>
                   <Select name="deliveryFor" value={formData.deliveryFor} onChange={onChange} required>
                     <MenuItem value="Company">Company</MenuItem>
@@ -425,31 +482,9 @@ export default function KioskForms() {
                   </Select>
                 </FormControl>
               </div>
-
-              <div>
-                <FieldLabel icon={CalendarMonthRounded} text="Date Received" required />
-                <TextField
-                  fullWidth
-                  name="dateReceived"
-                  type="date"
-                  value={formData.dateReceived}
-                  onChange={onChange}
-                  required
-                  sx={fieldSx}
-                  inputRef={dateInputRef}
-                  inputProps={{
-                    onClick: (event) => {
-                      event.currentTarget.showPicker?.()
-                    }
-                  }}
-                />
-              </div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ minHeight: '132px' }}>
-                {formData.deliveryFor === 'Company' ? (
+                         {formData.deliveryFor === 'Company' ? (
                   <div>
-                    <FieldLabel icon={BusinessRounded} text="Company" required />
+                    <FieldLabel icon={FaBuilding} text="Company" required />
                     <FormControl fullWidth sx={fieldSx}>
                       <Select
                         name="companyId"
@@ -489,7 +524,7 @@ export default function KioskForms() {
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <BusinessRounded sx={{ color: COLORS.secondaryBrown }} />
+                              <FaBuilding size={18} style={{ color: COLORS.secondaryBrown }} />
                             </InputAdornment>
                           )
                         }}
@@ -499,9 +534,13 @@ export default function KioskForms() {
                 ) : (
                   <div style={{ visibility: 'hidden' }} aria-hidden="true" />
                 )}
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ minHeight: '132px' }}>
+
 
                 <div>
-                  <FieldLabel icon={PersonRounded} text="Recipient Name" required />
+                  <FieldLabel icon={FaUser} text="Recipient Name" required />
                   <TextField
                     fullWidth
                     name="recipientName"
@@ -513,7 +552,7 @@ export default function KioskForms() {
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <PersonRounded sx={{ color: COLORS.primaryBrown }} />
+                          <FaUser size={18} style={{ color: COLORS.primaryBrown }} />
                         </InputAdornment>
                       )
                     }}
@@ -526,7 +565,7 @@ export default function KioskForms() {
             <Box sx={{ pb: 4, borderBottom: '1px solid #e8e8e8' }}>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
-                    <FieldLabel icon={PersonRounded} text="Deliverer Name" required />
+                    <FieldLabel icon={FaUser} text="Deliverer Name" required />
                     <TextField
                     fullWidth
                     name="delivererName"
@@ -538,14 +577,14 @@ export default function KioskForms() {
                     InputProps={{
                         startAdornment: (
                         <InputAdornment position="start">
-                            <PersonRounded sx={{ color: COLORS.primaryBrown }} />
+                            <FaUser size={18} style={{ color: COLORS.primaryBrown }} />
                         </InputAdornment>
                         )
                     }}
                     />
                 </div>
             <div>
-                <FieldLabel icon={Inventory2Rounded} text="Delivery Type" required />
+                <FieldLabel icon={FaBoxOpen} text="Delivery Type" required />
                 <FormControl fullWidth sx={fieldSx}>
                   <Select
                     name="deliveryType"
@@ -577,7 +616,7 @@ export default function KioskForms() {
             <Box sx={{ pb: 4, borderBottom: '1px solid #e8e8e8' }}>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
-                <FieldLabel icon={LocalShippingRounded} text="Delivery By" required />
+                <FieldLabel icon={FaTruck} text="Delivery By" required />
                 <FormControl fullWidth sx={fieldSx}>
                   <Select
                     name="deliveryPartner"
@@ -604,7 +643,7 @@ export default function KioskForms() {
               </div>
               {formData.deliveryPartner === 'Courier' && (
                 <div>
-                  <FieldLabel icon={LocalShippingRounded} text="Courier Type" required />
+                  <FieldLabel icon={FaTruck} text="Courier Type" required />
                   <FormControl fullWidth sx={fieldSx}>
                     <Select name="courierTypeName" value={formData.courierTypeName} onChange={onChange} displayEmpty>
                       <MenuItem value="" disabled>
@@ -626,7 +665,7 @@ export default function KioskForms() {
             <Box>
               {formData.deliveryPartner === 'Supplier' && (
                 <Box sx={{ mb: 4, pb: 4, borderBottom: '1px solid #e8e8e8' }}>
-                  <FieldLabel icon={DescriptionRounded} text="Supplier Description" />
+                  <FieldLabel icon={FaRegFileAlt} text="Supplier Description" />
                   <TextField
                     fullWidth
                     name="supplierDescription"
@@ -707,12 +746,14 @@ export default function KioskForms() {
         </div>
       </div>
 
-      <DeliverySummaryModal
-        open={showSummary}
-        onClose={() => setShowSummary(false)}
-        onConfirm={submitForm}
-        summaryData={summaryData}
-      />
+      {canRenderSummaryModal ? (
+        <DeliverySummaryModal
+          open={showSummary}
+          onClose={() => setShowSummary(false)}
+          onConfirm={submitForm}
+          summaryData={summaryData}
+        />
+      ) : null}
     </div>
   )
 }

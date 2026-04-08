@@ -3,13 +3,13 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeor
 @Entity({ name: 'virtual_offices' })
 export class Company {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   branch?: string;
 
   @Column({ type: 'varchar', length: 255 })
-  company_name: string;
+  company_name!: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   contact_person_1?: string;
@@ -51,5 +51,5 @@ export class Company {
   remarks?: string;
 
   @CreateDateColumn({ type: 'timestamp' })
-  created_at: Date;
+  created_at!: Date;
 }

@@ -5,8 +5,8 @@ export class Delivery {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ type: 'date' })
-  date_received!: string;
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  date_received!: Date;
 
   @Column({ type: 'varchar', length: 20 })
   delivery_for!: string;

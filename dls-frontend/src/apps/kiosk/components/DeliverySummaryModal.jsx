@@ -1,16 +1,18 @@
 import React from 'react'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Dialog from '@mui/material/Dialog'
-import DialogActions from '@mui/material/DialogActions'
-import DialogContent from '@mui/material/DialogContent'
-import IconButton from '@mui/material/IconButton'
-import Stack from '@mui/material/Stack'
-import SvgIcon from '@mui/material/SvgIcon'
-import Typography from '@mui/material/Typography'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import Divider from '@mui/material/Divider'
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  IconButton,
+  Stack,
+  SvgIcon,
+  Typography,
+  Card,
+  CardContent,
+  Divider
+} from '@mui/material'
 
 function FactCheckRoundedIcon(props) {
   return (

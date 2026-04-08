@@ -1,29 +1,31 @@
 import React, { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableContainer from '@mui/material/TableContainer'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
-import Paper from '@mui/material/Paper'
-import Typography from '@mui/material/Typography'
-import CircularProgress from '@mui/material/CircularProgress'
-import Alert from '@mui/material/Alert'
-import FormControl from '@mui/material/FormControl'
-import Select from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
-import TextField from '@mui/material/TextField'
-import InputAdornment from '@mui/material/InputAdornment'
-import Stack from '@mui/material/Stack'
-import SvgIcon from '@mui/material/SvgIcon'
+import {
+  Box,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Typography,
+  CircularProgress,
+  Alert,
+  FormControl,
+  Select,
+  MenuItem,
+  TextField,
+  InputAdornment,
+  Stack,
+  SvgIcon
+} from '@mui/material'
 import { styled } from '@mui/material/styles'
 
 import { getDeliveryLogs } from '../../../services/deliveriesServices'
-import KioskBlobsBackground, { DEFAULT_BACKGROUND_GRADIENT, DEFAULT_BLOB_GRADIENT } from '../components/KioskBlobsBackground'
+import KioskBlobsBackground from '../components/KioskBlobsBackground';
 
 const COLORS = {
   background: '#ffffff',
@@ -127,7 +129,11 @@ export default function KioskHistoryLogs() {
   const { data: logs = [], isLoading, isError, error } = useQuery({
     queryKey: ['deliveryLogs'],
     queryFn: getDeliveryLogs,
-    select: (data) => (Array.isArray(data) ? data : [])
+    select: (data) => {
+      if (Array.isArray(data)) return data
+      if (Array.isArray(data?.items)) return data.items
+      return []
+    }
   })
 
   const formatDate = (dateString) => {
@@ -188,7 +194,7 @@ export default function KioskHistoryLogs() {
 
   return (
     <div className="fixed inset-0 overflow-auto" style={{ backgroundColor: COLORS.background }}>
-      <KioskBlobsBackground backgroundGradient={DEFAULT_BACKGROUND_GRADIENT} blobGradient={DEFAULT_BLOB_GRADIENT} opacity={0.7} />
+      <KioskBlobsBackground opacity={0.7} />
 
       <div className="relative z-10 min-h-screen px-5 py-6 sm:px-10 lg:px-16">
         <Box

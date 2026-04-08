@@ -19,10 +19,11 @@ export class DeliveryPartnersService {
 
   async create(dto: CreateDeliveryPartnerDto) {
     const type = dto.type.toLowerCase().trim();
-    if (type === 'courier' && !dto.name) {
+    const name = type === 'courier' ? dto.name?.trim() : null;
+    if (type === 'courier' && !name) {
       throw new BadRequestException('Name is required for courier type');
     }
-    const ent = this.repo.create({ name: dto.name?.trim(), type });
+    const ent = this.repo.create({ name, type });
     const saved = await this.repo.save(ent);
     return this.toResponse(saved);
   }
@@ -42,7 +43,18 @@ export class DeliveryPartnersService {
     const ent = await this.repo.findOne({ where: { id } });
     if (!ent) throw new NotFoundException('Delivery partner not found');
     if (dto.type) ent.type = dto.type.toLowerCase().trim();
-    if (dto.name !== undefined) ent.name = dto.name?.trim();
+
+    if (ent.type === 'courier') {
+      if (dto.name !== undefined) {
+        ent.name = dto.name?.trim() || null;
+      }
+      if (!ent.name) {
+        throw new BadRequestException('Name is required for courier type');
+      }
+    } else {
+      ent.name = null;
+    }
+
     if (ent.type === 'courier' && !ent.name) {
       throw new BadRequestException('Name is required for courier type');
     }

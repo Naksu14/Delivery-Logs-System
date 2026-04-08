@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import { CheckCircleOutlineRounded, HomeRounded } from '@mui/icons-material';
+import { Box, Button, Typography } from '@mui/material';
+import { FaCheckCircle, FaHome } from 'react-icons/fa';
 import KioskBlobsBackground from '../components/KioskBlobsBackground';
 
 export default function KioskSuccess() {
@@ -47,7 +45,7 @@ export default function KioskSuccess() {
             boxShadow: '0 10px 30px rgba(221, 232, 71, 0.3)',
           }}
         >
-          <CheckCircleOutlineRounded sx={{ fontSize: 50, color: '#000000' }} />
+          <FaCheckCircle size={50} style={{ color: '#000000' }} />
         </Box>
 
         <Typography
@@ -74,7 +72,7 @@ export default function KioskSuccess() {
         <Button
           variant="contained"
           onClick={() => navigate('/kiosk')}
-          startIcon={<HomeRounded />}
+          startIcon={<FaHome />}
           sx={{
             backgroundColor: '#000000',
             color: '#ffffff',

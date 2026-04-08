@@ -5,11 +5,12 @@ import AdminDeliveryLogs from './pages/AdminDeliveryLogs'
 import AdminNewDelivery from './pages/AdminNewDelivery'
 import AdminCompanies from './pages/AdminCompanies'
 import AdminAccount from './pages/AdminAccount'
+import { AdminRealtimeProvider } from './context/AdminRealtimeContext'
 
 export default function AdminRoutes() {
 	return (
 		<Routes>
-			<Route element={<AdminTopNav />}>
+			<Route element={<AdminRealtimeProvider><AdminTopNav /></AdminRealtimeProvider>}>
 				<Route index element={<AdminHome />} />
 				<Route path="delivery-logs" element={<AdminDeliveryLogs />} />
 				<Route path="new-delivery" element={<AdminNewDelivery />} />
