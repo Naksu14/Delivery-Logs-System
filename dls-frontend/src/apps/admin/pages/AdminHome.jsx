@@ -1,9 +1,387 @@
-export default function AdminHome() {
+import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { HiArrowDownTray, HiBuildingOffice2, HiCalendarDays, HiClipboardDocumentList, HiMagnifyingGlass } from 'react-icons/hi2'
+import AdminPageHeader from '../components/AdminPageHeader'
+import { getDeliveryLogs } from '../../../services/deliveriesServices'
+import { getCompanies } from '../../../services/companyAPIServices'
+import './admin-home.css'
+
+const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+function normalizeType(type = '') {
+  const value = String(type).toLowerCase()
+  if (value.includes('parcel')) return 'parcel'
+  if (value.includes('mail')) return 'mail'
+  return 'others'
+}
+
+function formatDateTime(value) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleString('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: 'numeric',
+    minute: '2-digit'
+  })
+}
+
+function isSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+}
+
+function getWeekStart(date) {
+  const base = new Date(date)
+  const day = base.getDay() || 7
+  base.setDate(base.getDate() - day + 1)
+  base.setHours(0, 0, 0, 0)
+  return base
+}
+
+function clampName(value = '', max = 28) {
+  if (!value) return '—'
+  if (value.length <= max) return value
+  return `${value.slice(0, max - 1)}...`
+}
+
+function toCsv(rows) {
+  return rows
+    .map((row) =>
+      row
+        .map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`)
+        .join(',')
+    )
+    .join('\n')
+}
+
+function StatusBadge({ status }) {
+  const normalized = String(status || 'Pending').toLowerCase()
+  const isReleased = normalized === 'released'
   return (
-    <section>
-      <h1 className="admin-page__title">Dashboard</h1>
-      <div className="admin-card">
-        <p>Quick summary widgets and actions can be displayed here.</p>
+    <span className={`admin-home-status ${isReleased ? 'is-released' : 'is-pending'}`}>
+      {isReleased ? 'Released' : 'Pending'}
+    </span>
+  )
+}
+
+export default function AdminHome() {
+  const navigate = useNavigate()
+  const [search, setSearch] = useState('')
+
+  const {
+    data: deliveryData,
+    isLoading: isDeliveryLoading,
+    isError: isDeliveryError,
+  } = useQuery({
+    queryKey: ['dashboard-deliveries'],
+    queryFn: () => getDeliveryLogs({ page: 1, limit: 250 }),
+  })
+
+  const {
+    data: companiesData,
+    isLoading: isCompaniesLoading,
+    isError: isCompaniesError,
+  } = useQuery({
+    queryKey: ['dashboard-companies'],
+    queryFn: getCompanies,
+  })
+
+  const deliveries = useMemo(() => {
+    if (Array.isArray(deliveryData?.items)) return deliveryData.items
+    if (Array.isArray(deliveryData)) return deliveryData
+    return []
+  }, [deliveryData])
+
+  const companies = useMemo(() => {
+    if (Array.isArray(companiesData)) return companiesData
+    if (Array.isArray(companiesData?.items)) return companiesData.items
+    return []
+  }, [companiesData])
+
+  const now = new Date()
+  const weekStart = getWeekStart(now)
+
+  const kpis = useMemo(() => {
+    const todayCount = deliveries.filter((item) => isSameDay(new Date(item?.date_received), now)).length
+    const thisWeekCount = deliveries.filter((item) => {
+      const date = new Date(item?.date_received)
+      if (Number.isNaN(date.getTime())) return false
+      return date >= weekStart
+    }).length
+
+    return {
+      totalDeliveries: Number(deliveryData?.meta?.totalItems || deliveries.length),
+      todayCount,
+      totalCompanies: companies.length,
+      thisWeekCount,
+    }
+  }, [companies.length, deliveries, deliveryData?.meta?.totalItems, now, weekStart])
+
+  const chartData = useMemo(() => {
+    const weekMatrix = WEEK_DAYS.map((day) => ({ day, parcel: 0, mail: 0, others: 0 }))
+    const typeTotals = { parcel: 0, mail: 0, others: 0 }
+
+    deliveries.forEach((item) => {
+      const type = normalizeType(item?.delivery_type)
+      typeTotals[type] += 1
+
+      const date = new Date(item?.date_received)
+      if (Number.isNaN(date.getTime()) || date < weekStart) return
+
+      const dayIndex = date.getDay()
+      const mondayIndex = dayIndex === 0 ? 6 : dayIndex - 1
+      if (weekMatrix[mondayIndex]) {
+        weekMatrix[mondayIndex][type] += 1
+      }
+    })
+
+    const maxValue = Math.max(
+      1,
+      ...weekMatrix.map((item) => Math.max(item.parcel, item.mail, item.others))
+    )
+
+    return { weekMatrix, typeTotals, maxValue }
+  }, [deliveries, weekStart])
+
+  const recentDeliveries = useMemo(() => {
+    const keyword = search.trim().toLowerCase()
+    const filtered = deliveries
+      .filter((item) => {
+        if (!keyword) return true
+        const haystack = [
+          item?.company_name,
+          item?.delivery_type,
+          item?.delivery_partner,
+          item?.courier_type_name,
+          item?.deliverer_name,
+          item?.description,
+          item?.received_by,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return haystack.includes(keyword)
+      })
+      .sort((a, b) => new Date(b?.date_received || 0) - new Date(a?.date_received || 0))
+
+    return filtered.slice(0, 10)
+  }, [deliveries, search])
+
+  const activeCompanies = useMemo(() => {
+    return [...companies]
+      .sort((a, b) => (Number(b?.delivery_count || 0) - Number(a?.delivery_count || 0)))
+      .slice(0, 8)
+  }, [companies])
+
+  const donutStyle = useMemo(() => {
+    const { parcel, mail, others } = chartData.typeTotals
+    const total = parcel + mail + others
+    if (!total) {
+      return {
+        background: 'conic-gradient(#d5d9d1 0deg 360deg)'
+      }
+    }
+
+    const parcelDeg = (parcel / total) * 360
+    const mailDeg = (mail / total) * 360
+    const othersDeg = 360 - parcelDeg - mailDeg
+
+    return {
+      background: `conic-gradient(#0f1f00 0deg ${parcelDeg}deg, #4baa2d ${parcelDeg}deg ${parcelDeg + mailDeg}deg, #d4df45 ${parcelDeg + mailDeg}deg ${parcelDeg + mailDeg + othersDeg}deg)`
+    }
+  }, [chartData.typeTotals])
+
+  const exportCsv = () => {
+    const rows = [
+      ['Date & Time', 'Company', 'Delivery Type', 'Deliverer', 'Courier/Supplier', 'Description', 'Received By', 'Status'],
+      ...recentDeliveries.map((item) => [
+        formatDateTime(item?.date_received),
+        item?.company_name || '—',
+        item?.delivery_type || '—',
+        item?.deliverer_name || '—',
+        item?.courier_type_name || item?.delivery_partner || '—',
+        item?.description || '—',
+        item?.received_by || '—',
+        item?.is_status || 'Pending',
+      ])
+    ]
+
+    const blob = new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `delivery-dashboard-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <section className="space-y-4">
+      <AdminPageHeader
+        title="Dashboard"
+        subtitle="Monitor and manage all delivery records in one place."
+        actions={(
+          <div className="admin-home-actions">
+            <button type="button" className="admin-btn-primary" onClick={() => navigate('/admin/new-delivery')}>
+              <HiClipboardDocumentList />
+              Create Log
+            </button>
+            <button type="button" className="admin-btn-secondary" onClick={exportCsv}>
+              <HiArrowDownTray />
+              Export
+            </button>
+          </div>
+        )}
+      />
+
+      {(isDeliveryError || isCompaniesError) ? (
+        <div className="admin-home-alert">
+          Unable to load dashboard metrics. Please refresh the page.
+        </div>
+      ) : null}
+
+      <div className="admin-home-kpi-grid">
+        <article className="admin-home-kpi-card is-primary">
+          <div className="admin-home-kpi-head">
+            <p>Total Deliveries</p>
+            <HiClipboardDocumentList />
+          </div>
+          <h3>{isDeliveryLoading ? '...' : kpis.totalDeliveries}</h3>
+        </article>
+
+        <article className="admin-home-kpi-card">
+          <div className="admin-home-kpi-head">
+            <p>Today's Deliveries</p>
+            <HiCalendarDays />
+          </div>
+          <h3>{isDeliveryLoading ? '...' : kpis.todayCount}</h3>
+        </article>
+
+        <article className="admin-home-kpi-card">
+          <div className="admin-home-kpi-head">
+            <p>Total Companies</p>
+            <HiBuildingOffice2 />
+          </div>
+          <h3>{isCompaniesLoading ? '...' : kpis.totalCompanies}</h3>
+        </article>
+
+        <article className="admin-home-kpi-card">
+          <div className="admin-home-kpi-head">
+            <p>This Week</p>
+            <HiClipboardDocumentList />
+          </div>
+          <h3>{isDeliveryLoading ? '...' : kpis.thisWeekCount}</h3>
+        </article>
+      </div>
+
+      <div className="admin-home-analytics-grid">
+        <article className="admin-home-panel">
+          <div className="admin-home-panel-head">
+            <h3>Delivery Analytics</h3>
+          </div>
+          <div className="admin-home-bars-wrap">
+            {chartData.weekMatrix.map((row) => (
+              <div key={row.day} className="admin-home-bar-col">
+                <div className="admin-home-bar-stack">
+                  <span style={{ height: `${(row.parcel / chartData.maxValue) * 170}px` }} className="is-parcel" />
+                  <span style={{ height: `${(row.mail / chartData.maxValue) * 170}px` }} className="is-mail" />
+                  <span style={{ height: `${(row.others / chartData.maxValue) * 170}px` }} className="is-others" />
+                </div>
+                <p>{row.day}</p>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="admin-home-panel admin-home-donut-panel">
+          <div className="admin-home-panel-head">
+            <h3>Delivery Types</h3>
+          </div>
+          <div className="admin-home-donut" style={donutStyle} />
+          <ul className="admin-home-legend">
+            <li><span className="is-parcel" /> Parcel <strong>{chartData.typeTotals.parcel}</strong></li>
+            <li><span className="is-mail" /> Mails <strong>{chartData.typeTotals.mail}</strong></li>
+            <li><span className="is-others" /> Others <strong>{chartData.typeTotals.others}</strong></li>
+          </ul>
+        </article>
+      </div>
+
+      <div className="admin-home-bottom-grid">
+        <article className="admin-home-panel">
+          <div className="admin-home-panel-head is-table-head">
+            <h3>Recent Deliveries</h3>
+            <label className="admin-home-search">
+              <HiMagnifyingGlass />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search records"
+              />
+            </label>
+          </div>
+
+          <div className="admin-home-table-wrap">
+            <table className="admin-home-table">
+              <thead>
+                <tr>
+                  <th>Date & Time</th>
+                  <th>Company</th>
+                  <th>Delivery Type</th>
+                  <th>Deliverer</th>
+                  <th>Courier/Supplier</th>
+                  <th>Description</th>
+                  <th>Received by</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentDeliveries.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="admin-home-empty">No delivery records found.</td>
+                  </tr>
+                ) : (
+                  recentDeliveries.map((item) => (
+                    <tr key={item.id}>
+                      <td>{formatDateTime(item?.date_received)}</td>
+                      <td>{clampName(item?.company_name, 24)}</td>
+                      <td>{item?.delivery_type || '—'}</td>
+                      <td>{clampName(item?.deliverer_name, 20)}</td>
+                      <td>{clampName(item?.courier_type_name || item?.delivery_partner, 18)}</td>
+                      <td>{clampName(item?.description, 24)}</td>
+                      <td>{clampName(item?.received_by, 18)}</td>
+                      <td><StatusBadge status={item?.is_status} /></td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article className="admin-home-panel admin-home-companies-panel">
+          <div className="admin-home-panel-head">
+            <h3>Companies</h3>
+          </div>
+          <ul className="admin-home-company-list">
+            {activeCompanies.length === 0 ? (
+              <li className="admin-home-empty">No companies found.</li>
+            ) : (
+              activeCompanies.map((company) => (
+                <li key={company.id}>
+                  <div className="admin-home-company-icon"><HiBuildingOffice2 /></div>
+                  <div>
+                    <p>{company.company_name}</p>
+                    <small>{company.delivery_count || 0} deliveries</small>
+                  </div>
+                </li>
+              ))
+            )}
+          </ul>
+        </article>
       </div>
     </section>
   )

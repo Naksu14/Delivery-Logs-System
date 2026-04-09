@@ -1,0 +1,39 @@
+:root {
+  --admin-bg: #ececef;
+  --admin-surface: #ffffff;
+  --admin-surface-soft: #f8fafc;
+  --admin-surface-muted: #f3f4f6;
+  --admin-border: #d8e0ea;
+  --admin-border-strong: #b8c4d3;
+  --admin-heading: #0f172a;
+  --admin-text: #334155;
+  --admin-muted: #64748b;
+  --admin-muted-strong: #475569;
+  --admin-accent: #d4df45;
+  --admin-accent-strong: #b8c632;
+  --admin-accent-soft: #f7fadf;
+  --admin-danger: #dc2626;
+  --admin-success: #16a34a;
+  --admin-warning: #d97706;
+  --admin-shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.06);
+  --admin-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08);
+  --admin-shadow-lg: 0 18px 40px rgba(15, 23, 42, 0.12);
+  --admin-radius-sm: 10px;
+  --admin-radius-md: 14px;
+  --admin-radius-lg: 18px;
+  --admin-radius-xl: 24px;
+  --admin-radius-full: 999px;
+  --admin-page-max: 1560px;
+
+  --dls-surface: var(--admin-surface);
+  --dls-bg-soft: #f5f6f7;
+  --dls-border: var(--admin-border);
+  --dls-text: #1f252e;
+  --dls-text-muted: #8d939d;
+  --dls-accent: var(--admin-accent);
+  --dls-accent-strong: var(--admin-accent-strong);
+  --dls-pending-bg: #e4e98f;
+  --dls-pending-text: #62671d;
+  --dls-released-bg: #96e39a;
+  --dls-released-text: #2f7f33;
+}

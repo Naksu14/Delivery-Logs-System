@@ -112,3 +112,20 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* Hide native scrollbars globally while preserving scrolling behavior */
+html, body, #root {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* WebKit browsers */
+*::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
+
+/* Ensure scrollable elements still scroll (no pointer changes) */
+* {
+  -webkit-overflow-scrolling: touch;
+}

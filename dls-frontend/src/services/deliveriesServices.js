@@ -58,3 +58,13 @@ export const deleteDeliveryLog = async (logId) => {
         throw error;
     }
 };
+
+export const verifyAndReleaseDelivery = async (logId, payload) => {
+  try {
+    const response = await api.patch(`/deliveries/${logId}/verify-release`, payload);
+    return response.data;
+  } catch (error) {
+    console.error(`Error verifying delivery release with ID ${logId}:`, error);
+    throw error;
+  }
+};

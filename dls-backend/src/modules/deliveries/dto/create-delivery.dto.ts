@@ -39,9 +39,10 @@ export class CreateDeliveryDto {
 	@IsString()
 	description?: string;
 
+	@IsOptional()
 	@IsString()
-	@IsIn(['Pending', 'Released'])
-	is_status!: string;
+	@IsIn(['Pending'])
+	is_status?: string;
 
 	@IsOptional()
 	@IsString()

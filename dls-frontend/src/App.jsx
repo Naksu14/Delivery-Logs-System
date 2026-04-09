@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import AdminRoutes from './apps/admin/admin-routes'
 import KioskRoutes from './apps/kiosk/kiosk-routes'
 import RequireAuth from './apps/auth/components/RequireAuth'
@@ -12,8 +12,18 @@ function PublicOnlyRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth()
 
   if (isLoading) return null
-  if (isAuthenticated) return <AdminRoutes />
+  if (isAuthenticated) return <Navigate to="/admin" replace />
   return children
+}
+
+function RootRedirect() {
+  const { isAuthenticated, isLoading } = useAuth()
+
+  if (isLoading) return null
+
+  return isAuthenticated
+    ? <Navigate to="/admin" replace />
+    : <Navigate to="/kiosk" replace />
 }
 
 function App() {
@@ -46,12 +56,9 @@ function App() {
             />
             <Route
               path="/"
-              element={(
-                <PublicOnlyRoute>
-                  <LoginPage />
-                </PublicOnlyRoute>
-              )}
+              element={<RootRedirect />}
             />
+            <Route path="*" element={<RootRedirect />} />
           </Routes>
         </Router>
       </AuthProvider>

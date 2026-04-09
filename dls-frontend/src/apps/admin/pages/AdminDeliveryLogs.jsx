@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert } from '@mui/material';
 import { FaPenToSquare, FaTruck, FaXmark } from 'react-icons/fa6';
+import AdminPageHeader from '../components/AdminPageHeader';
 import {
   deleteDeliveryLog,
   getDeliveryLogById,
@@ -37,6 +38,11 @@ function toDatetimeLocal(value) {
   if (Number.isNaN(date.getTime())) return '';
   const offset = date.getTimezoneOffset() * 60000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function normalizeReferenceCode(value) {
+  if (!value) return '—';
+  return String(value).trim().toUpperCase();
 }
 
 function formatOptionalDate(value) {
@@ -226,10 +232,7 @@ export default function AdminDeliveryLogs() {
       courier_type_name: editForm.courier_type_name,
       supplier_description: editForm.supplier_description,
       deliverer_name: editForm.deliverer_name,
-      description: editForm.description,
-      is_status: editForm.is_status,
-      received_by: editForm.received_by,
-      received_at: editForm.received_at || null
+      description: editForm.description
     };
 
     updateMutation.mutate({ id: selectedDelivery.id, payload });
@@ -238,8 +241,10 @@ export default function AdminDeliveryLogs() {
   return (
     <section className="delivery-logs-page">
       <header className="delivery-logs-page__header">
-        <h1 className="delivery-logs-page__title">Delivery Logs</h1>
-        <p className="delivery-logs-page__subtitle">View and manage all delivery records</p>
+        <AdminPageHeader
+          title="Delivery Logs"
+          subtitle="View and manage all delivery records"
+        />
       </header>
 
       <div className="delivery-logs-card">
@@ -299,6 +304,7 @@ export default function AdminDeliveryLogs() {
             <h3 className="mb-4 text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">Overview</h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <DetailBlock label="Date & Time" value={selectedDelivery?.date_received ? `${formatOptionalDate(selectedDelivery.date_received)} ${formatOptionalTime(selectedDelivery.date_received)}` : '—'} />
+              <DetailBlock label="Reference Code" value={normalizeReferenceCode(selectedDelivery?.reference_code)} highlight />
               <DetailBlock label="Company" value={selectedDelivery?.company_name} />
               <DetailBlock label="Delivery Type" value={selectedDelivery?.delivery_type} />
               <DetailBlock label="Deliverer" value={selectedDelivery?.deliverer_name} />
@@ -325,8 +331,8 @@ export default function AdminDeliveryLogs() {
         <ModalShell
           open={editOpen}
           onClose={() => setEditOpen(false)}
-          title="Mark Delivery as Received"
-          subtitle="Update delivery details and receiver information"
+          title="Edit Delivery Details"
+          subtitle="Update non-verification fields for this record"
           icon={FaPenToSquare}
           size="xl"
           actions={(
@@ -340,47 +346,26 @@ export default function AdminDeliveryLogs() {
         >
           <form id="delivery-edit-form" onSubmit={submitEdit} className="space-y-4">
             <section className="rounded-[22px] border border-slate-200 bg-white p-4">
-              <h3 className="mb-4 text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">Receiver Information</h3>
+              <h3 className="mb-4 text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">Verification</h3>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <Field label="Received By *">
+                <Field label="Reference Code">
                   <input
-                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#cfd84d] focus:ring-4 focus:ring-[#d4df45]/15"
-                    required
-                    value={editForm.received_by ?? ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value.trim()) {
-                        // Auto-populate current date and time
-                        const now = new Date();
-                        const dateTimeStr = now.toISOString();
-                        const datetimeStr = toDatetimeLocal(now.toISOString());
-                        
-                        setEditForm((prev) => ({
-                          ...prev,
-                          received_by: value,
-                          date_received: dateTimeStr,
-                          received_at: datetimeStr,
-                          is_status: 'Released'
-                        }));
-                      } else {
-                        setEditForm((prev) => ({ ...prev, received_by: value }));
-                      }
-                    }}
-                  />
-                </Field>
-                <Field label="Date Received">
-                  <input
-                    className="w-full rounded-2xl border border-slate-300 bg-slate-100 px-4 py-3 text-sm outline-none transition cursor-not-allowed opacity-75"
-                    type="date"
-                    value={editForm.date_received ?? ''}
+                    className="w-full rounded-2xl border border-slate-300 bg-slate-100 px-4 py-3 text-sm uppercase outline-none transition cursor-not-allowed opacity-75"
+                    value={normalizeReferenceCode(editForm.reference_code)}
                     readOnly
                   />
                 </Field>
-                <Field label="Time Received">
+                <Field label="Status">
                   <input
                     className="w-full rounded-2xl border border-slate-300 bg-slate-100 px-4 py-3 text-sm outline-none transition cursor-not-allowed opacity-75"
-                    type="datetime-local"
-                    value={editForm.received_at ?? ''}
+                    value={editForm.is_status ?? 'Pending'}
+                    readOnly
+                  />
+                </Field>
+                <Field label="Received By">
+                  <input
+                    className="w-full rounded-2xl border border-slate-300 bg-slate-100 px-4 py-3 text-sm outline-none transition cursor-not-allowed opacity-75"
+                    value={editForm.received_by || '—'}
                     readOnly
                   />
                 </Field>
@@ -393,7 +378,6 @@ export default function AdminDeliveryLogs() {
                 {[
                   ['Company', 'company_name', editForm.company_name],
                   ['Recipient Name', 'recipient_name', editForm.recipient_name],
-                  ['Status', 'is_status', editForm.is_status],
                   ['Delivery Type', 'delivery_type', editForm.delivery_type],
                   ['Delivery Partner', 'delivery_partner', editForm.delivery_partner],
                   ['Courier Type', 'courier_type_name', editForm.courier_type_name]
@@ -419,7 +403,7 @@ export default function AdminDeliveryLogs() {
             </section>
 
             <div className="rounded-2xl border border-[#e9e36f] bg-[#fefce8] px-4 py-3 text-xs text-[#9a8f12]">
-              Once receiver information is saved, the delivery status will automatically change to "Released".
+              Delivery release is secured and can only be completed by kiosk verification using the matching reference code and signature.
             </div>
 
             {updateMutation.isError ? <Alert severity="error">Failed to update delivery record.</Alert> : null}

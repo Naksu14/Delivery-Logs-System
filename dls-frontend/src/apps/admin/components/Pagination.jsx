@@ -20,7 +20,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange, pageSize, onPageSiz
           type="button"
           onClick={handlePrevious}
           disabled={currentPage === 1}
-          className="delivery-logs-pagination__btn"
+          className="admin-btn-secondary delivery-logs-pagination__btn"
         >
           Previous
         </button>
@@ -34,7 +34,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange, pageSize, onPageSiz
           type="button"
           onClick={handleNext}
           disabled={currentPage === totalPages || totalPages === 0}
-          className="delivery-logs-pagination__btn"
+          className="admin-btn-secondary delivery-logs-pagination__btn"
         >
           Next
         </button>
@@ -45,7 +45,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange, pageSize, onPageSiz
         <select
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          className="delivery-logs-pagination__select"
+          className="admin-input-control delivery-logs-pagination__select"
         >
           <option value={10}>10</option>
           <option value={25}>25</option>

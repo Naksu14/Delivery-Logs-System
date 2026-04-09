@@ -12,8 +12,15 @@ export const DELIVERY_SOCKET_EVENTS = {
 
 class DeliverySocketService {
   socket = null;
+  retainCount = 0;
+  releaseTimer = null;
 
   connect() {
+    if (this.releaseTimer) {
+      clearTimeout(this.releaseTimer);
+      this.releaseTimer = null;
+    }
+
     if (this.socket) {
       return this.socket;
     }
@@ -32,7 +39,44 @@ class DeliverySocketService {
     return this.socket;
   }
 
+  retain() {
+    this.retainCount += 1;
+    return this.connect();
+  }
+
+  release() {
+    this.retainCount = Math.max(0, this.retainCount - 1);
+
+    if (this.retainCount > 0) {
+      return;
+    }
+
+    if (this.releaseTimer) {
+      clearTimeout(this.releaseTimer);
+    }
+
+    // Delay disconnect to absorb React StrictMode mount/unmount cycles in dev.
+    this.releaseTimer = setTimeout(() => {
+      if (this.retainCount > 0 || !this.socket) {
+        this.releaseTimer = null;
+        return;
+      }
+
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
+      this.releaseTimer = null;
+    }, 300);
+  }
+
   disconnect() {
+    this.retainCount = 0;
+
+    if (this.releaseTimer) {
+      clearTimeout(this.releaseTimer);
+      this.releaseTimer = null;
+    }
+
     if (!this.socket) return;
     this.socket.removeAllListeners();
     this.socket.disconnect();

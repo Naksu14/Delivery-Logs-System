@@ -38,6 +38,9 @@ export class Delivery {
   @Column({ type: 'varchar', length: 50, default: 'Pending' })
   is_status!: string;
 
+  @Column({ type: 'varchar', length: 5, nullable: true, unique: true })
+  reference_code?: string;
+
   @Column({ type: 'varchar', length: 200, nullable: true })
   received_by?: string;
 
@@ -47,6 +50,6 @@ export class Delivery {
   @Column({ type: 'timestamp', nullable: true })
   received_at?: Date;
 
-  @Column({ type: 'varchar', length: 500, nullable: true })
+  @Column({ type: 'longtext', nullable: true })
   receiver_signature?: string;
 }

@@ -1,17 +1,11 @@
+@import "../styles/admin-tokens.css";
+
 .admin-shell {
-  --admin-surface: #ffffff;
-  --admin-surface-soft: #f8fafc;
-  --admin-border: #d8e0ea;
-  --admin-heading: #0f2341;
-  --admin-text: #334155;
-  --admin-muted: #64748b;
-  --admin-accent: #d4df45;
-  --admin-accent-strong: #bfd137;
   display: flex;
   flex-direction: column;
   min-height: 100svh;
   width: 100%;
-  background: #ececef;
+  background: var(--admin-bg);
   padding: 14px 10px 30px;
 }
 
@@ -212,7 +206,7 @@
 .admin-page {
   flex: 1;
   width: 100%;
-  padding: 22px 6px 0;
+  padding: 22px 32px 0;
 }
 
 .admin-realtime-toasts {
@@ -272,7 +266,7 @@
 }
 
 .admin-page__title {
-  color: #1d1f1a;
+  color: var(--admin-heading);
   font-size: 44px;
   font-weight: 800;
   line-height: 1;
@@ -281,7 +275,7 @@
 }
 
 .admin-page__subtitle {
-  color: #7f8184;
+  color: var(--admin-muted);
   font-size: 14px;
   margin: 8px 0 16px;
   text-align: left;
@@ -290,8 +284,8 @@
 .admin-card {
   background: var(--admin-surface);
   border: 1px solid var(--admin-border);
-  border-radius: 16px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  border-radius: var(--admin-radius-lg);
+  box-shadow: var(--admin-shadow-md);
   padding: 16px;
   text-align: left;
 }
@@ -299,14 +293,14 @@
 .admin-panel {
   background: var(--admin-surface);
   border: 1px solid var(--admin-border);
-  border-radius: 16px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  border-radius: var(--admin-radius-lg);
+  box-shadow: var(--admin-shadow-md);
 }
 
 .admin-panel-soft {
   background: var(--admin-surface-soft);
   border: 1px solid var(--admin-border);
-  border-radius: 16px;
+  border-radius: var(--admin-radius-lg);
 }
 
 .admin-heading-lg {
@@ -322,9 +316,9 @@
 
 .admin-input-control {
   width: 100%;
-  border-radius: 12px;
-  border: 1px solid #b6c4d8;
-  background: #ffffff;
+  border-radius: var(--admin-radius-md);
+  border: 1px solid var(--admin-border-strong);
+  background: var(--admin-surface);
   padding: 0.72rem 1rem;
   font-size: 0.95rem;
   color: var(--admin-text);
@@ -341,7 +335,7 @@
   align-items: center;
   background: var(--admin-accent);
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: var(--admin-radius-md);
   color: #111827;
   cursor: pointer;
   display: inline-flex;
@@ -365,10 +359,10 @@
 
 .admin-btn-secondary {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #b8c4d3;
-  border-radius: 12px;
-  color: #334155;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border-strong);
+  border-radius: var(--admin-radius-md);
+  color: var(--admin-text);
   cursor: pointer;
   display: inline-flex;
   font-size: 0.9rem;
@@ -405,6 +399,11 @@
 
   .admin-page__title {
     font-size: 34px;
+  }
+
+  .admin-page {
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   .admin-realtime-toasts {

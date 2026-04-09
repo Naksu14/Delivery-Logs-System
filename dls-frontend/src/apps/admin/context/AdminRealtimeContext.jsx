@@ -72,7 +72,7 @@ export function AdminRealtimeProvider({ children }) {
   const clearUnread = () => setUnreadCount(0);
 
   useEffect(() => {
-    const socket = deliverySocketService.getSocket();
+    const socket = deliverySocketService.retain();
     let disposed = false;
 
     setIsConnected(socket.connected);
@@ -139,7 +139,7 @@ export function AdminRealtimeProvider({ children }) {
       offCreated();
       offUpdated();
       offDeleted();
-      deliverySocketService.disconnect();
+      deliverySocketService.release();
     };
   }, [queryClient]);
 

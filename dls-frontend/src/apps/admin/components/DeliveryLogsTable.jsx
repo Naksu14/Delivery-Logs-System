@@ -1,10 +1,12 @@
-import React from 'react';
-import { FaRegEye, FaRegTrashAlt } from 'react-icons/fa';
+import React, { useState } from 'react';
+import { FaRegEye, FaRegEyeSlash, FaRegTrashAlt } from 'react-icons/fa';
 import { FaPenToSquare } from 'react-icons/fa6';
 
 const SKELETON_ROWS = 8;
 
 const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) => {
+  const [showReferenceCodes, setShowReferenceCodes] = useState(false);
+
   const getStatusBadgeClass = (status) => {
     switch (status) {
       case 'Pending':
@@ -36,12 +38,32 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
     return date.toLocaleDateString('en-CA');
   };
 
+  const maskReferenceCode = (value) => {
+    const code = String(value || '').trim();
+    if (!code) return '—';
+    return '•'.repeat(code.length);
+  };
+
   return (
     <div className="delivery-logs-table-wrap">
       <table className="delivery-logs-table">
         <thead className='uppercase'>
           <tr>
             <th>Date & Time</th>
+            <th>
+              <div className="delivery-logs-table__reference-head">
+                <span>Reference Code</span>
+                <button
+                  type="button"
+                  className="delivery-logs-table__reference-toggle"
+                  onClick={() => setShowReferenceCodes((prev) => !prev)}
+                  aria-label={showReferenceCodes ? 'Hide reference codes' : 'Show reference codes'}
+                  title={showReferenceCodes ? 'Hide reference codes' : 'Show reference codes'}
+                >
+                  {showReferenceCodes ? <FaRegEyeSlash /> : <FaRegEye />}
+                </button>
+              </div>
+            </th>
             <th>Company</th>
             <th>Delivery Type</th>
             <th>Deliverer</th>
@@ -65,6 +87,7 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
                   <td><span className="delivery-logs-table__skeleton" /></td>
                   <td><span className="delivery-logs-table__skeleton" /></td>
                   <td><span className="delivery-logs-table__skeleton" /></td>
+                  <td><span className="delivery-logs-table__skeleton" /></td>
                   <td><span className="delivery-logs-table__skeleton is-pill" /></td>
                   <td><span className="delivery-logs-table__skeleton is-actions" /></td>
                 </tr>
@@ -78,6 +101,7 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
                   <span>{formatTime(delivery.date_received)}</span>
                 </div>
               </td>
+              <td>{showReferenceCodes ? delivery.reference_code || '—' : maskReferenceCode(delivery.reference_code)}</td>
               <td>{delivery.company_name || '—'}</td>
               <td>{delivery.delivery_type || '—'}</td>
               <td>{delivery.deliverer_name || '—'}</td>
@@ -86,8 +110,14 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
               <td>{delivery.received_by || '—'}</td>
               <td>
                 <div className="delivery-logs-table__datetime">
-                  {formatOptionalDate(delivery.received_at) ? <span>{formatOptionalDate(delivery.received_at)}</span> : null}
-                  {formatTime(delivery.received_at) ? <span>{formatTime(delivery.received_at)}</span> : null}
+                  {String(delivery.is_status || '').toLowerCase() === 'released' ? (
+                    <>
+                      {formatOptionalDate(delivery.received_at) ? <span>{formatOptionalDate(delivery.received_at)}</span> : null}
+                      {formatTime(delivery.received_at) ? <span>{formatTime(delivery.received_at)}</span> : null}
+                    </>
+                  ) : (
+                    <span>—</span>
+                  )}
                 </div>
               </td>
               <td>
@@ -133,7 +163,7 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
           ))
           ) : (
             <tr>
-              <td colSpan={10} className="delivery-logs-table__empty">No delivery records found.</td>
+              <td colSpan={11} className="delivery-logs-table__empty">No delivery records found.</td>
             </tr>
           )}
         </tbody>

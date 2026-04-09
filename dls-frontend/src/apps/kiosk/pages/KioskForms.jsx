@@ -56,6 +56,7 @@ const initialForm = {
   companyNameManual: '',
   recipientName: '',
   deliveryType: '',
+  deliveryByType: '',
   deliveryPartner: '',
   courierTypeName: '',
   supplierDescription: '',
@@ -64,9 +65,9 @@ const initialForm = {
   is_status: 'Pending'
 }
 
-const defaultDeliveryPartnerOptions = ['Supplier', 'Courier']
+const defaultDeliveryPartnerOptions = []
+const defaultDeliveryByTypeOptions = ['Courier', 'Supplier']
 const defaultDeliveryTypeOptions = ['Parcel', 'Mail', 'Other']
-const courierOptions = ['LBC', 'J&T Express', 'Ninja Van', 'Grab', 'Lalamove', 'Other']
 const companySelectPlaceholder = 'Select company'
 
 function getCompanyLabel(company) {
@@ -208,6 +209,7 @@ export default function KioskForms() {
   const [currentNow, setCurrentNow] = useState(() => new Date())
   const [showSummary, setShowSummary] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const canRenderBlobs = isRenderableComponent(KioskBlobsBackground)
   const canRenderSummaryModal = isRenderableComponent(DeliverySummaryModal)
 
@@ -260,25 +262,41 @@ export default function KioskForms() {
     onSuccess: () => {
       queryClient.invalidateQueries(['delivery-logs'])
       setSubmitted(true)
+      setSubmitError('')
       setFormData(initialForm)
       navigate('/kiosk/success');
     },
     onError: (error) => {
       console.error('Error creating delivery log:', error)
-      // You could show an error alert here
+      const apiMessage = error?.response?.data?.message
+      const fallback = 'Failed to submit delivery log. Please review the fields and try again.'
+      setSubmitError(Array.isArray(apiMessage) ? apiMessage[0] : apiMessage || fallback)
     }
   })
 
   const deliveredByOptions = useMemo(() => {
-    const types = Array.from(
+    const partners = Array.from(
       new Set(
         deliveryPartners
-          .map((partner) => formatTypeLabel(partner?.type))
+          .filter((partner) => formatTypeLabel(partner?.type) === 'Courier')
+          .map((partner) => partner?.name)
           .filter(Boolean)
       )
     )
 
-    return types.length > 0 ? types : defaultDeliveryPartnerOptions
+    return partners.length > 0 ? partners : defaultDeliveryPartnerOptions
+  }, [deliveryPartners])
+
+  const deliveryByTypeOptions = useMemo(() => {
+    const types = Array.from(
+      new Set(
+        deliveryPartners
+          .map((partner) => formatTypeLabel(partner?.type))
+          .filter((type) => type === 'Courier' || type === 'Supplier')
+      )
+    )
+
+    return types.length > 0 ? types : defaultDeliveryByTypeOptions
   }, [deliveryPartners])
 
   const deliveryTypeOptions = useMemo(() => {
@@ -292,19 +310,6 @@ export default function KioskForms() {
 
     return types.length > 0 ? types : defaultDeliveryTypeOptions
   }, [deliveryTypes])
-
-  const courierTypeOptions = useMemo(() => {
-    const couriers = Array.from(
-      new Set(
-        deliveryPartners
-          .filter((partner) => formatTypeLabel(partner?.type) === 'Courier')
-          .map((partner) => partner?.name)
-          .filter(Boolean)
-      )
-    )
-
-    return couriers.length > 0 ? couriers : courierOptions
-  }, [deliveryPartners])
 
   const hasFormChanges = useMemo(() => {
     return JSON.stringify(formData) !== JSON.stringify(initialForm)
@@ -330,6 +335,7 @@ export default function KioskForms() {
   const onChange = (event) => {
     const { name, value } = event.target
     setSubmitted(false)
+    setSubmitError('')
 
     if (name === 'deliveryFor') {
       setFormData((prev) => ({
@@ -354,8 +360,18 @@ export default function KioskForms() {
       setFormData((prev) => ({
         ...prev,
         deliveryPartner: value,
-        courierTypeName: value === 'Courier' ? prev.courierTypeName : '',
-        supplierDescription: value === 'Supplier' ? prev.supplierDescription : ''
+        courierTypeName: value
+      }))
+      return
+    }
+
+    if (name === 'deliveryByType') {
+      setFormData((prev) => ({
+        ...prev,
+        deliveryByType: value,
+        deliveryPartner: '',
+        courierTypeName: '',
+        supplierDescription: ''
       }))
       return
     }
@@ -394,9 +410,9 @@ export default function KioskForms() {
       recipient_name: formData.recipientName,
       company_name: companyNameValue,
       delivery_type: formData.deliveryType,
-      delivery_partner: formData.deliveryPartner,
-      courier_type_name: formData.courierTypeName,
-      supplier_description: formData.supplierDescription,
+      delivery_partner: formData.deliveryByType === 'Supplier' ? 'Supplier' : formData.deliveryPartner,
+      courier_type_name: formData.deliveryByType === 'Courier' ? formData.deliveryPartner : undefined,
+      supplier_description: formData.deliveryByType === 'Supplier' ? formData.supplierDescription : undefined,
       deliverer_name: formData.delivererName,
       description: formData.description,
       is_status: formData.is_status,
@@ -410,7 +426,7 @@ export default function KioskForms() {
     <div className="fixed inset-0 overflow-auto" style={{ backgroundColor: COLORS.backgroundColor }}>
       {canRenderBlobs ? <KioskBlobsBackground opacity={0.8} /> : null}
 
-      <div className="relative z-10 min-h-full px-5 py-6 sm:px-10 lg:px-16">
+      <div className="relative z-10 min-h-full px-5 py-6">
         <div className="mb-8 flex items-center gap-4">
           <IconButton
             type="button"
@@ -438,7 +454,7 @@ export default function KioskForms() {
           </Typography>
         </div>
 
-        <div className="mx-auto w-full max-w-5xl rounded-[20px] shadow-[0_12px_32px_rgba(0,0,0,0.08)] p-6 sm:p-8" style={{ border: `1px solid #e8e8e8`, backgroundColor: '#ffffff' }}>
+        <div className="mx-auto w-full rounded-[20px] shadow-[0_12px_32px_rgba(0,0,0,0.08)] p-6 sm:p-8" style={{ border: `1px solid #e8e8e8`, backgroundColor: '#ffffff' }}>
           <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <Typography sx={{ fontSize: '1.8rem', fontWeight: 900, color: COLORS.primaryBrown, mb: 1 }}>
@@ -470,19 +486,20 @@ export default function KioskForms() {
           </div>
 
           <form onSubmit={openSummary} className="space-y-6">
-            {/* Recipient Information Section */}
+            {/* Receiver Information Section */}
             <Box sx={{ pb: 4, borderBottom: '1px solid #e8e8e8' }}>
-              <div className="grid grid-cols-1 lg:grid-cols-2  gap-4">
-              <div>
-                <FieldLabel icon={FaBuilding} text="Delivery For" required />
-                <FormControl fullWidth sx={fieldSx}>
-                  <Select name="deliveryFor" value={formData.deliveryFor} onChange={onChange} required>
-                    <MenuItem value="Company">Company</MenuItem>
-                    <MenuItem value="Individual">Individual</MenuItem>
-                  </Select>
-                </FormControl>
-              </div>
-                         {formData.deliveryFor === 'Company' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div>
+                  <FieldLabel icon={FaBuilding} text="Delivery For" required />
+                  <FormControl fullWidth sx={fieldSx}>
+                    <Select name="deliveryFor" value={formData.deliveryFor} onChange={onChange} required>
+                      <MenuItem value="Company">Company</MenuItem>
+                      <MenuItem value="Individual">Individual</MenuItem>
+                    </Select>
+                  </FormControl>
+                </div>
+
+                {formData.deliveryFor === 'Company' ? (
                   <div>
                     <FieldLabel icon={FaBuilding} text="Company" required />
                     <FormControl fullWidth sx={fieldSx}>
@@ -516,7 +533,8 @@ export default function KioskForms() {
                         name="companyNameManual"
                         value={formData.companyNameManual}
                         onChange={onChange}
-                        placeholder="Type company name (optional)"
+                        placeholder="Type company name"
+                        required
                         sx={{
                           ...fieldSx,
                           mt: 2
@@ -532,21 +550,24 @@ export default function KioskForms() {
                     )}
                   </div>
                 ) : (
-                  <div style={{ visibility: 'hidden' }} aria-hidden="true" />
+                  <div>
+                    <FieldLabel icon={FaBuilding} text="Company" />
+                    <FormControl fullWidth sx={fieldSx}>
+                      <Select value="" displayEmpty disabled>
+                        <MenuItem value="">Disabled for individual delivery</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </div>
                 )}
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ minHeight: '132px' }}>
-
 
                 <div>
-                  <FieldLabel icon={FaUser} text="Recipient Name" required />
+                  <FieldLabel icon={FaUser} text="Receiver Name" required />
                   <TextField
                     fullWidth
                     name="recipientName"
                     value={formData.recipientName}
                     onChange={onChange}
-                    placeholder="Enter recipient name"
+                    placeholder="Enter receiver name"
                     required
                     sx={fieldSx}
                     InputProps={{
@@ -563,7 +584,7 @@ export default function KioskForms() {
 
             {/* Delivery Details Section */}
             <Box sx={{ pb: 4, borderBottom: '1px solid #e8e8e8' }}>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <div>
                     <FieldLabel icon={FaUser} text="Deliverer Name" required />
                     <TextField
@@ -591,6 +612,7 @@ export default function KioskForms() {
                     value={formData.deliveryType}
                     onChange={onChange}
                     displayEmpty
+                    required
                     disabled={isDeliveryTypesLoading}
                   >
                     <MenuItem value="" disabled>
@@ -608,75 +630,99 @@ export default function KioskForms() {
                     Could not load delivery types. Using default options.
                   </Typography>
                 )}
-              </div>              
+              </div>
+              <div className="hidden xl:block" aria-hidden="true" />
             </div>
             </Box>
 
             {/* Delivery Method Section */}
             <Box sx={{ pb: 4, borderBottom: '1px solid #e8e8e8' }}>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <div>
                 <FieldLabel icon={FaTruck} text="Delivery By" required />
                 <FormControl fullWidth sx={fieldSx}>
                   <Select
-                    name="deliveryPartner"
-                    value={formData.deliveryPartner}
+                    name="deliveryByType"
+                    value={formData.deliveryByType}
                     onChange={onChange}
                     displayEmpty
+                    required
                     disabled={isDeliveryPartnersLoading}
                   >
                     <MenuItem value="" disabled>
-                      {isDeliveryPartnersLoading ? 'Loading delivery partners...' : 'Select delivery partner'}
+                      {isDeliveryPartnersLoading ? 'Loading delivery by types...' : 'Select delivery by'}
                     </MenuItem>
-                    {deliveredByOptions.map((option) => (
+                    {deliveryByTypeOptions.map((option) => (
                       <MenuItem key={option} value={option}>
                         {option}
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-                {isDeliveryPartnersError && (
-                  <Typography sx={{ mt: 1, fontSize: '0.9rem', color: '#b45309' }}>
-                    Could not load delivery partners. Using default options.
-                  </Typography>
-                )}
-              </div>
-              {formData.deliveryPartner === 'Courier' && (
-                <div>
-                  <FieldLabel icon={FaTruck} text="Courier Type" required />
+                </div>
+
+                {formData.deliveryByType === 'Courier' ? (
+                  <div>
+                  <FieldLabel icon={FaTruck} text="Courier Partner" required />
                   <FormControl fullWidth sx={fieldSx}>
-                    <Select name="courierTypeName" value={formData.courierTypeName} onChange={onChange} displayEmpty>
+                    <Select
+                      name="deliveryPartner"
+                      value={formData.deliveryPartner}
+                      onChange={onChange}
+                      displayEmpty
+                      required
+                      disabled={isDeliveryPartnersLoading}
+                    >
                       <MenuItem value="" disabled>
-                        Select courier type
+                        {isDeliveryPartnersLoading ? 'Loading courier partners...' : 'Select courier partner'}
                       </MenuItem>
-                      {courierTypeOptions.map((option) => (
+                      {deliveredByOptions.map((option) => (
                         <MenuItem key={option} value={option}>
                           {option}
                         </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
+                  {isDeliveryPartnersError && (
+                    <Typography sx={{ mt: 1, fontSize: '0.9rem', color: '#b45309' }}>
+                      Could not load courier partners. Please refresh and try again.
+                    </Typography>
+                  )}
+                  {!isDeliveryPartnersLoading && deliveredByOptions.length === 0 ? (
+                    <Typography sx={{ mt: 1, fontSize: '0.9rem', color: '#b45309' }}>
+                      No courier partners available. Please ask admin to create at least one courier partner.
+                    </Typography>
+                  ) : null}
                 </div>
-              )}
+                ) : null}
+
+                {formData.deliveryByType === 'Supplier' ? (
+                  <div>
+                    <FieldLabel icon={FaRegFileAlt} text="Supplier Description" required />
+                    <TextField
+                      fullWidth
+                      name="supplierDescription"
+                      value={formData.supplierDescription}
+                      onChange={onChange}
+                      placeholder="Enter supplier information"
+                      required
+                      sx={fieldSx}
+                    />
+                  </div>
+                ) : null}
+
+                {formData.deliveryByType === '' ? (
+                  <div className="hidden md:block" aria-hidden="true" />
+                ) : null}
+
+                {formData.deliveryByType !== '' ? (
+                  <div className="hidden xl:block" aria-hidden="true" />
+                ) : null}
             </div>
             </Box>
 
             {/* Additional Information Section */}
             <Box>
-              {formData.deliveryPartner === 'Supplier' && (
-                <Box sx={{ mb: 4, pb: 4, borderBottom: '1px solid #e8e8e8' }}>
-                  <FieldLabel icon={FaRegFileAlt} text="Supplier Description" />
-                  <TextField
-                    fullWidth
-                    name="supplierDescription"
-                    value={formData.supplierDescription}
-                    onChange={onChange}
-                    placeholder="Additional supplier information (optional)"
-                    sx={fieldSx}
-                  />
-                </Box>
-              )}
-
               <Typography sx={{ fontSize: '1.1rem', fontWeight: 700, color: COLORS.primaryBrown, mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
                Notes
               </Typography>
@@ -741,7 +787,9 @@ export default function KioskForms() {
               </Button>
             </Stack>
             {submitted && <Alert severity="success">Delivery log submitted successfully! Redirecting...</Alert>}
-            {createLogMutation.isError && <Alert severity="error">Failed to submit delivery log. Please try again.</Alert>}
+            {createLogMutation.isError && (
+              <Alert severity="error">{submitError || 'Failed to submit delivery log. Please try again.'}</Alert>
+            )}
           </form>
         </div>
       </div>

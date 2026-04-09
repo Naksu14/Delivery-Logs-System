@@ -9,7 +9,7 @@ const SearchAndFilters = ({ search, status, type, deliveryTypeOptions = [], setS
         <input
           type="text"
           placeholder="Search Deliveries"
-          className="delivery-logs-filters__search"
+          className="admin-input-control delivery-logs-filters__search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           aria-label="Search deliveries"
@@ -28,7 +28,7 @@ const SearchAndFilters = ({ search, status, type, deliveryTypeOptions = [], setS
 
       <div className="delivery-logs-filters__selects">
         <select
-          className="delivery-logs-filters__select"
+          className="admin-input-control delivery-logs-filters__select"
           value={type}
           onChange={(e) => setType(e.target.value)}
         >
@@ -41,7 +41,7 @@ const SearchAndFilters = ({ search, status, type, deliveryTypeOptions = [], setS
         </select>
 
         <select
-          className="delivery-logs-filters__select"
+          className="admin-input-control delivery-logs-filters__select"
           value={status}
           onChange={(e) => setStatus(e.target.value)}
         >

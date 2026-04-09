@@ -19,7 +19,7 @@ import './admin-top-nav.css'
 const navItems = [
   { to: '/admin', end: true, label: 'Dashboard', icon: MdOutlineBarChart },
   { to: '/admin/delivery-logs', label: 'Delivery Logs', icon: FaBoxOpen },
-  { to: '/admin/new-delivery', label: 'Delivery Workspace', icon: AiFillPlusCircle },
+  { to: '/admin/new-delivery', label: 'New Delivery', icon: AiFillPlusCircle },
   { to: '/admin/companies', label: 'Companies', icon: HiBuildingOffice2 }
 ]
 

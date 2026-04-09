@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntP
 import { DeliveriesService } from './deliveries.service';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
+import { VerifyDeliveryDto } from './dto/verify-delivery.dto';
 
 
 @Controller('deliveries')
@@ -26,6 +27,11 @@ export class DeliveriesController {
   @Patch(':id')
   update(@Param('id', ParseIntPipe) id: number, @Body() updateDeliveryDto: UpdateDeliveryDto) {
     return this.deliveriesService.update(id, updateDeliveryDto);
+  }
+
+  @Patch(':id/verify-release')
+  verifyAndRelease(@Param('id', ParseIntPipe) id: number, @Body() verifyDeliveryDto: VerifyDeliveryDto) {
+    return this.deliveriesService.verifyAndRelease(id, verifyDeliveryDto);
   }
 
   @Delete(':id')

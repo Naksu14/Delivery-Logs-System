@@ -51,6 +51,12 @@ function SummaryRow({ label, value, icon: Icon }) {
 }
 
 export default function DeliverySummaryModal({ open, onClose, onConfirm, summaryData }) {
+  const deliveryByType = String(summaryData?.deliveryByType || '').trim()
+  const isSupplier = deliveryByType.toLowerCase() === 'supplier'
+  const deliveredByValue = isSupplier
+    ? 'Supplier'
+    : summaryData?.deliveryPartner || deliveryByType || '—'
+
   return (
     <Dialog
       open={open}
@@ -164,15 +170,24 @@ export default function DeliverySummaryModal({ open, onClose, onConfirm, summary
           {/* Delivery By */}
           <Card sx={{ border: 'none', background: '#f9f9f9', boxShadow: 'none', borderRadius: '12px' }}>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <SummaryRow label="Delivered By" value={summaryData.deliveryPartner} />
+              <SummaryRow label="Delivered By" value={deliveredByValue} />
             </CardContent>
           </Card>
 
           {/* Courier Type (conditional) */}
-          {summaryData.courierTypeName && (
+          {!isSupplier && summaryData.courierTypeName && (
             <Card sx={{ border: 'none', background: '#f9f9f9', boxShadow: 'none', borderRadius: '12px' }}>
               <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                 <SummaryRow label="Courier Service" value={summaryData.courierTypeName} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Supplier Description (conditional) */}
+          {isSupplier && summaryData.supplierDescription && (
+            <Card sx={{ border: 'none', background: '#f9f9f9', boxShadow: 'none', borderRadius: '12px' }}>
+              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                <SummaryRow label="Supplier Description" value={summaryData.supplierDescription} />
               </CardContent>
             </Card>
           )}

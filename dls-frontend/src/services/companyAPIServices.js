@@ -11,20 +11,19 @@ export const getCompanies = async () => {
     const response = await api.get("/companies");
     return response.data;
   }
-    catch (error) {
+  catch (error) {
     console.error("Error fetching companies:", error);
     throw error;
   }
 };
 
 export const getCompanyById = async (companyId) => {
-  try
-    {
-        const response = await api.get(`/companies/${companyId}`);
-        return response.data;
-    }
-    catch (error) {
-        console.error(`Error fetching company with ID ${companyId}:`, error);
-        throw error;
-    }
+  try {
+    const response = await api.get(`/companies/${companyId}`);
+    return response.data;
+  }
+  catch (error) {
+    console.error(`Error fetching company with ID ${companyId}:`, error);
+    throw error;
+  }
 };
