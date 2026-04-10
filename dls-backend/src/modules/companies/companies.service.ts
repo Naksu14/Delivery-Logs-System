@@ -21,6 +21,20 @@ export class CompaniesService {
     return (value || '').trim().toLowerCase();
   }
 
+  async findByCompanyName(companyName: string): Promise<Company | null> {
+    const normalizedCompanyName = this.normalizeCompanyName(companyName);
+    if (!normalizedCompanyName) {
+      return null;
+    }
+
+    return this.companyRepo
+      .createQueryBuilder('company')
+      .where('LOWER(TRIM(company.company_name)) = :companyName', {
+        companyName: normalizedCompanyName,
+      })
+      .getOne();
+  }
+
   private async getDeliveryCountMap(): Promise<Map<string, number>> {
     const rows = await this.deliveryRepo
       .createQueryBuilder('d')

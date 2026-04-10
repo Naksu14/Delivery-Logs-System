@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import AdminRoutes from './apps/admin/admin-routes'
 import KioskRoutes from './apps/kiosk/kiosk-routes'
 import RequireAuth from './apps/auth/components/RequireAuth'
@@ -7,6 +8,35 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from './queryClient'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import './App.css'
+
+function getTabTitle(pathname) {
+  if (pathname === '/login') return 'Admin Login | Delivery Logs System'
+  if (pathname === '/kiosk' || pathname === '/kiosk/') return 'Kiosk Home | Delivery Logs System'
+  if (pathname === '/kiosk/new') return 'New log | Delivery Logs System'
+  if (pathname === '/kiosk/success') return 'Submission Success | Delivery Logs System'
+  if (pathname === '/kiosk/history') return 'Kiosk History | Delivery Logs System'
+
+  if (pathname === '/admin' || pathname === '/admin/') return 'Dashboard | Delivery Logs System'
+  if (pathname === '/admin/delivery-logs') return 'Logs | Delivery Logs System'
+  if (pathname === '/admin/new-delivery') return 'Delivery Workspace | Delivery Logs System'
+  if (pathname === '/admin/companies') return 'Companies | Delivery Logs System'
+  if (/^\/admin\/companies\/[^/]+$/.test(pathname)) {
+    return 'Company Details | Delivery Logs System'
+  }
+  if (pathname === '/admin/account') return 'My Account | Delivery Logs System'
+
+  return 'Delivery Logs System'
+}
+
+function RouteTitleManager() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    document.title = getTabTitle(pathname)
+  }, [pathname])
+
+  return null
+}
 
 function PublicOnlyRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth()
@@ -36,6 +66,7 @@ function App() {
             v7_relativeSplatPath: true,
           }}
         >
+          <RouteTitleManager />
           <Routes>
             <Route
               path="/admin/*"

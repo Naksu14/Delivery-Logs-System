@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   HiOutlineArrowRightOnRectangle,
-  HiOutlineUserCircle,
   HiOutlineUser,
 } from 'react-icons/hi2'
 import { IoIosPerson } from "react-icons/io";
@@ -10,6 +9,7 @@ import { MdOutlineBarChart } from "react-icons/md";
 import { FaBoxOpen } from "react-icons/fa";
 import { AiFillPlusCircle } from "react-icons/ai";
 import { HiBuildingOffice2 } from "react-icons/hi2";
+import { HiOutlineTableCells } from 'react-icons/hi2'
 
 import { useAuth } from '../../../context/AuthContext'
 import { useAdminRealtime } from '../context/AdminRealtimeContext'
@@ -20,7 +20,8 @@ const navItems = [
   { to: '/admin', end: true, label: 'Dashboard', icon: MdOutlineBarChart },
   { to: '/admin/delivery-logs', label: 'Delivery Logs', icon: FaBoxOpen },
   { to: '/admin/new-delivery', label: 'New Delivery', icon: AiFillPlusCircle },
-  { to: '/admin/companies', label: 'Companies', icon: HiBuildingOffice2 }
+  { to: '/admin/companies', label: 'Companies', icon: HiBuildingOffice2 },
+  { to: '/admin/spreadsheet-settings', label: 'Sheets', icon: HiOutlineTableCells }
 ]
 
 function ProfileMenu({ onNavigateAccount, onLogout }) {

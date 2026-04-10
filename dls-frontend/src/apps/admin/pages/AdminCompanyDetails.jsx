@@ -32,11 +32,6 @@ export default function AdminCompanyDetails() {
 
   return (
     <section className="space-y-6">
-      <AdminPageHeader
-        title={company?.company_name || 'Company Details'}
-        subtitle="View company profile and delivery statistics"
-      />
-
       <Link
         to="/admin/companies"
         className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-lime-300 hover:bg-lime-50"
@@ -70,7 +65,7 @@ export default function AdminCompanyDetails() {
               <HiBuildingOffice2 className="text-2xl" />
             </div>
             <div>
-              <h1 className="text-3xl font-black tracking-tight text-slate-900">{company.company_name}</h1>
+              <span className="text-3xl font-black tracking-tight text-slate-900">{company.company_name}</span>
               <p className="mt-1 text-sm text-slate-500">{resolveCompanyType(company.package_tier)}</p>
             </div>
           </div>

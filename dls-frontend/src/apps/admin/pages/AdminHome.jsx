@@ -247,33 +247,37 @@ export default function AdminHome() {
         <article className="admin-home-kpi-card is-primary">
           <div className="admin-home-kpi-head">
             <p>Total Deliveries</p>
-            <HiClipboardDocumentList />
+            <span className="admin-kpi-icon"><HiClipboardDocumentList /></span>
           </div>
           <h3>{isDeliveryLoading ? '...' : kpis.totalDeliveries}</h3>
+          <p className="admin-kpi-note">{!isDeliveryLoading ? 'Increased from last week' : ''}</p>
         </article>
 
         <article className="admin-home-kpi-card">
           <div className="admin-home-kpi-head">
             <p>Today's Deliveries</p>
-            <HiCalendarDays />
+            <span className="admin-kpi-icon"><HiCalendarDays /></span>
           </div>
           <h3>{isDeliveryLoading ? '...' : kpis.todayCount}</h3>
+          <p className="admin-kpi-note">{!isDeliveryLoading ? `${chartData.typeTotals.parcel} parcels • ${chartData.typeTotals.mail} mails • ${chartData.typeTotals.others} others` : ''}</p>
         </article>
 
         <article className="admin-home-kpi-card">
           <div className="admin-home-kpi-head">
             <p>Total Companies</p>
-            <HiBuildingOffice2 />
+            <span className="admin-kpi-icon"><HiBuildingOffice2 /></span>
           </div>
           <h3>{isCompaniesLoading ? '...' : kpis.totalCompanies}</h3>
+          <p className="admin-kpi-note">{!isCompaniesLoading ? `${kpis.totalCompanies} Active companies` : ''}</p>
         </article>
 
         <article className="admin-home-kpi-card">
           <div className="admin-home-kpi-head">
             <p>This Week</p>
-            <HiClipboardDocumentList />
+            <span className="admin-kpi-icon"><HiClipboardDocumentList /></span>
           </div>
           <h3>{isDeliveryLoading ? '...' : kpis.thisWeekCount}</h3>
+          <p className="admin-kpi-note">{!isDeliveryLoading ? `${kpis.thisWeekCount} Increased from last week` : ''}</p>
         </article>
       </div>
 
@@ -282,13 +286,32 @@ export default function AdminHome() {
           <div className="admin-home-panel-head">
             <h3>Delivery Analytics</h3>
           </div>
+          <div className="admin-home-panel-controls">
+            <div className="admin-home-chart-legend">
+              <span className="legend-item"><i className="legend-dot is-parcel" /> Parcel</span>
+              <span className="legend-item"><i className="legend-dot is-mail" /> Mails</span>
+              <span className="legend-item"><i className="legend-dot is-others" /> Others</span>
+            </div>
+          </div>
+
           <div className="admin-home-bars-wrap">
             {chartData.weekMatrix.map((row) => (
               <div key={row.day} className="admin-home-bar-col">
                 <div className="admin-home-bar-stack">
-                  <span style={{ height: `${(row.parcel / chartData.maxValue) * 170}px` }} className="is-parcel" />
-                  <span style={{ height: `${(row.mail / chartData.maxValue) * 170}px` }} className="is-mail" />
-                  <span style={{ height: `${(row.others / chartData.maxValue) * 170}px` }} className="is-others" />
+                  <div className="bar-seg">
+                    <span style={{ height: `${(row.parcel / chartData.maxValue) * 170}px` }} className="is-parcel" />
+                    <span className="bar-tooltip tooltip-parcel">{row.parcel} Parcels</span>
+                  </div>
+
+                  <div className="bar-seg">
+                    <span style={{ height: `${(row.mail / chartData.maxValue) * 170}px` }} className="is-mail" />
+                    <span className="bar-tooltip tooltip-mail">{row.mail} Mails</span>
+                  </div>
+
+                  <div className="bar-seg">
+                    <span style={{ height: `${(row.others / chartData.maxValue) * 170}px` }} className="is-others" />
+                    <span className="bar-tooltip tooltip-others">{row.others} Others</span>
+                  </div>
                 </div>
                 <p>{row.day}</p>
               </div>

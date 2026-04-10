@@ -11,7 +11,7 @@ export default function CompaniesPageSkeleton() {
         <div className="h-11 w-full max-w-md rounded-full bg-slate-200 md:w-80" />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: 8 }).map((_, index) => (
           <CompanyCardSkeleton key={`company-page-skeleton-${index}`} />
         ))}

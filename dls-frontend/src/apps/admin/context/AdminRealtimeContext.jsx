@@ -1,6 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import deliverySocketService, { DELIVERY_SOCKET_EVENTS } from '../../../services/deliverySocketService';
+import {
+  getDeliveryNotificationState,
+  markDeliveryNotificationStateSeen,
+} from '../../../services/deliveriesServices';
 
 const AdminRealtimeContext = createContext(null);
 
@@ -69,7 +73,39 @@ export function AdminRealtimeProvider({ children }) {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   };
 
-  const clearUnread = () => setUnreadCount(0);
+  const clearUnread = async () => {
+    try {
+      const nextState = await markDeliveryNotificationStateSeen();
+      setUnreadCount(Number(nextState?.unread_count) || 0);
+    } catch {
+      setUnreadCount(0);
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    const syncNotificationState = async () => {
+      try {
+        const state = await getDeliveryNotificationState();
+        if (!mounted) {
+          return;
+        }
+
+        setUnreadCount(Number(state?.unread_count) || 0);
+      } catch {
+        if (mounted) {
+          setUnreadCount(0);
+        }
+      }
+    };
+
+    syncNotificationState();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const socket = deliverySocketService.retain();
@@ -119,7 +155,7 @@ export function AdminRealtimeProvider({ children }) {
       handleRealtimeEvent(
         DELIVERY_SOCKET_EVENTS.UPDATED,
         payload,
-        (eventPayload) => `Delivery updated #${eventPayload?.delivery?.id || '-'}`
+        (eventPayload) => `Delivery updated ${eventPayload?.delivery?.company_name || '-'}`
       );
     });
 
@@ -127,7 +163,7 @@ export function AdminRealtimeProvider({ children }) {
       handleRealtimeEvent(
         DELIVERY_SOCKET_EVENTS.DELETED,
         payload,
-        (eventPayload) => `Delivery deleted #${eventPayload?.id || '-'}`
+        (eventPayload) => `Delivery deleted ${eventPayload?.company_name || '-'}`
       );
     });
 

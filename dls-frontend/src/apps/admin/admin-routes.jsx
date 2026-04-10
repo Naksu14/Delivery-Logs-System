@@ -6,6 +6,7 @@ import AdminNewDelivery from './pages/AdminNewDelivery'
 import AdminCompanies from './pages/AdminCompanies'
 import AdminAccount from './pages/AdminAccount'
 import AdminCompanyDetails from './pages/AdminCompanyDetails'
+import AdminSpreadsheetSettings from './pages/AdminSpreadsheetSettings'
 import { AdminRealtimeProvider } from './context/AdminRealtimeContext'
 
 export default function AdminRoutes() {
@@ -17,6 +18,7 @@ export default function AdminRoutes() {
 				<Route path="new-delivery" element={<AdminNewDelivery />} />
 				<Route path="companies" element={<AdminCompanies />} />
 				<Route path="companies/:companyId" element={<AdminCompanyDetails />} />
+				<Route path="spreadsheet-settings" element={<AdminSpreadsheetSettings />} />
 				<Route path="account" element={<AdminAccount />} />
 			</Route>
 		</Routes>

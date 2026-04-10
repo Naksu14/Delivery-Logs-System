@@ -6,6 +6,8 @@ import KioskBlobsBackground, {
   DEFAULT_BACKGROUND_GRADIENT,
   DEFAULT_BLOB_GRADIENT
 } from '../../kiosk/components/KioskBlobsBackground'
+import launchpadImg from '../../../assets/images/launchpad 2.png'
+
 import '../styles/auth-login.css'
 
 export default function LoginPage() {
@@ -46,7 +48,7 @@ export default function LoginPage() {
 
       <div className="login-shell">
         <div className="login-brand">
-          <div className="login-brand__badge">△</div>
+          <img src={launchpadImg} alt="Launchpad logo" className="login-brand__badge" />
           <div>
             <h1 className="login-brand__title">Launchpad Coworking</h1>
             <p className="login-brand__subtitle">Delivery Logs Management System</p>

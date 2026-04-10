@@ -48,6 +48,7 @@
   font-weight: 700;
   letter-spacing: 0.2px;
   line-height: 1;
+  margin-bottom: -6px;
 }
 
 .admin-brand__subtitle {
@@ -149,13 +150,14 @@
 
 .admin-profile__name {
   text-transform: capitalize;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
+  margin-bottom: -6px;
 }
 
 .admin-profile__id {
   color: #d7dfbe;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 600;
   opacity: 80%;
 }

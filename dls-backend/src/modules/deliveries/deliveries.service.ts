@@ -8,6 +8,8 @@ import { UpdateDeliveryDto } from './dto/update-delivery.dto';
 import { VerifyDeliveryDto } from './dto/verify-delivery.dto';
 import { DeliveriesGateway } from './deliveries.gateway';
 import { DeliveryPartner } from '../delivery-partners/entities/delivery-partner.entity';
+import { DeliveryNotificationService } from './delivery-notification.service';
+import { DeliverySpreadsheetService } from './delivery-spreadsheet.service';
 
 @Injectable()
 export class DeliveriesService {
@@ -17,6 +19,8 @@ export class DeliveriesService {
     @InjectRepository(DeliveryPartner)
     private readonly deliveryPartnerRepo: Repository<DeliveryPartner>,
     private readonly deliveriesGateway: DeliveriesGateway,
+    private readonly deliveryNotificationService: DeliveryNotificationService,
+    private readonly deliverySpreadsheetService: DeliverySpreadsheetService,
   ) {}
 
   private readonly referenceCodeCharset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -101,6 +105,8 @@ export class DeliveriesService {
       const delivery = this.deliveryRepo.create(deliveryPayload);
       const savedDelivery = await this.deliveryRepo.save(delivery);
       this.deliveriesGateway.emitDeliveryCreated(savedDelivery);
+      await this.deliveryNotificationService.sendNewDeliveryNotification(savedDelivery);
+      await this.deliverySpreadsheetService.appendDeliveryLog(savedDelivery);
       return savedDelivery;
     } catch (err: any) {
       if (err.code === 'ER_DUP_ENTRY') {
@@ -219,6 +225,7 @@ export class DeliveriesService {
 
     const updatedDelivery = await this.deliveryRepo.save(delivery);
     this.deliveriesGateway.emitDeliveryUpdated(updatedDelivery);
+    await this.deliverySpreadsheetService.appendDeliveryLog(updatedDelivery);
     return updatedDelivery;
   }
 

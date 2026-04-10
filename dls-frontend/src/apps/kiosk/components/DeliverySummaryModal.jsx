@@ -6,6 +6,7 @@ import {
   DialogActions,
   DialogContent,
   IconButton,
+  CircularProgress,
   Stack,
   SvgIcon,
   Typography,
@@ -50,7 +51,7 @@ function SummaryRow({ label, value, icon: Icon }) {
   )
 }
 
-export default function DeliverySummaryModal({ open, onClose, onConfirm, summaryData }) {
+export default function DeliverySummaryModal({ open, onClose, onConfirm, summaryData, isSubmitting = false }) {
   const deliveryByType = String(summaryData?.deliveryByType || '').trim()
   const isSupplier = deliveryByType.toLowerCase() === 'supplier'
   const deliveredByValue = isSupplier
@@ -108,10 +109,13 @@ export default function DeliverySummaryModal({ open, onClose, onConfirm, summary
           <IconButton 
             onClick={onClose} 
             aria-label="Close" 
+            disabled={isSubmitting}
             sx={{ 
               color: '#000000',
               background: 'rgba(255,255,255,0.3)',
               backdropFilter: 'blur(10px)',
+              opacity: isSubmitting ? 0.6 : 1,
+              pointerEvents: isSubmitting ? 'none' : 'auto',
               '&:hover': { background: 'rgba(255,255,255,0.5)' },
               transition: 'all 0.2s ease'
             }}
@@ -218,6 +222,7 @@ export default function DeliverySummaryModal({ open, onClose, onConfirm, summary
         <Button 
           autoFocus
           onClick={onClose} 
+          disabled={isSubmitting}
           variant="outlined" 
           sx={{ 
             borderColor: '#ddd',
@@ -229,6 +234,7 @@ export default function DeliverySummaryModal({ open, onClose, onConfirm, summary
             textTransform: 'none',
             fontSize: '0.95rem',
             flex: 1,
+            opacity: isSubmitting ? 0.6 : 1,
             transition: 'all 0.2s ease',
             '&:hover': {
               borderColor: '#999',
@@ -240,6 +246,7 @@ export default function DeliverySummaryModal({ open, onClose, onConfirm, summary
         </Button>
         <Button 
           onClick={onConfirm} 
+          disabled={isSubmitting}
           variant="contained" 
           sx={{ 
             fontWeight: 700,
@@ -252,6 +259,7 @@ export default function DeliverySummaryModal({ open, onClose, onConfirm, summary
             color: '#000000',
             boxShadow: '0 4px 16px rgba(221,232,71,0.3)',
             flex: 1,
+            opacity: isSubmitting ? 0.85 : 1,
             transition: 'all 0.2s ease',
             '&:hover': {
               boxShadow: '0 8px 24px rgba(221,232,71,0.4)',
@@ -259,7 +267,14 @@ export default function DeliverySummaryModal({ open, onClose, onConfirm, summary
             }
           }}
         >
-          Confirm
+          {isSubmitting ? (
+            <Stack direction="row" spacing={1.25} alignItems="center" justifyContent="center">
+              <CircularProgress size={16} thickness={5} sx={{ color: '#000000' }} />
+              <span>Sending...</span>
+            </Stack>
+          ) : (
+            'Confirm'
+          )}
         </Button>
       </DialogActions>
     </Dialog>

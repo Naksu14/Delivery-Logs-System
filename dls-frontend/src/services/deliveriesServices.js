@@ -68,3 +68,63 @@ export const verifyAndReleaseDelivery = async (logId, payload) => {
     throw error;
   }
 };
+
+export const getDeliveryNotificationState = async () => {
+  try {
+    const response = await api.get('/deliveries/notification-state');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching delivery notification state:', error);
+    throw error;
+  }
+};
+
+export const markDeliveryNotificationStateSeen = async () => {
+  try {
+    const response = await api.patch('/deliveries/notification-state/seen');
+    return response.data;
+  } catch (error) {
+    console.error('Error marking delivery notification state as seen:', error);
+    throw error;
+  }
+};
+
+export const getDeliverySpreadsheetSettings = async () => {
+  try {
+    const response = await api.get('/deliveries/spreadsheet-settings');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching delivery spreadsheet settings:', error);
+    throw error;
+  }
+};
+
+export const updateDeliverySpreadsheetSettings = async (payload) => {
+  try {
+    const response = await api.patch('/deliveries/spreadsheet-settings', payload);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating delivery spreadsheet settings:', error);
+    throw error;
+  }
+};
+
+export const upsertCompanyDeliverySpreadsheetMapping = async (payload) => {
+  try {
+    const response = await api.post('/deliveries/spreadsheet-settings/company-mappings', payload);
+    return response.data;
+  } catch (error) {
+    console.error('Error upserting company spreadsheet mapping:', error);
+    throw error;
+  }
+};
+
+export const deleteCompanyDeliverySpreadsheetMapping = async (mappingId) => {
+  try {
+    const response = await api.delete(`/deliveries/spreadsheet-settings/company-mappings/${mappingId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting company spreadsheet mapping with ID ${mappingId}:`, error);
+    throw error;
+  }
+};

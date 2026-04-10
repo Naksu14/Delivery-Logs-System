@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   FormControl,
+  CircularProgress,
   IconButton,
   InputAdornment,
   MenuItem,
@@ -391,6 +392,10 @@ export default function KioskForms() {
   }
 
   const submitForm = () => {
+    if (createLogMutation.isPending) {
+      return
+    }
+
     setShowSummary(false)
     const submittedAt = new Date()
 
@@ -425,6 +430,26 @@ export default function KioskForms() {
   return (
     <div className="fixed inset-0 overflow-auto" style={{ backgroundColor: COLORS.backgroundColor }}>
       {canRenderBlobs ? <KioskBlobsBackground opacity={0.8} /> : null}
+
+      {createLogMutation.isPending ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl border border-black/10 bg-white px-6 py-7 text-center shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
+            <CircularProgress sx={{ color: COLORS.accentBrown }} />
+            <div>
+              <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, color: COLORS.primaryBrown }}>
+                Saving and sending...
+              </Typography>
+              <Typography sx={{ mt: 0.5, fontSize: '0.92rem', color: COLORS.textMuted, fontWeight: 500 }}>
+                Please wait while the delivery log is being saved and the email notification is sent.
+              </Typography>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="relative z-10 min-h-full px-5 py-6">
         <div className="mb-8 flex items-center gap-4">
@@ -767,6 +792,7 @@ export default function KioskForms() {
               <Button
                 type="submit"
                 variant="contained"
+                disabled={createLogMutation.isPending}
                 sx={{
                   height: 48,
                   px: 5,
@@ -780,10 +806,22 @@ export default function KioskForms() {
                   '&:hover': {
                     boxShadow: '0 8px 28px rgba(221,232,71,0.4)',
                     transform: 'translateY(-2px)'
+                  },
+                  '&.Mui-disabled': {
+                    background: 'linear-gradient(135deg, #dde847 0%, #e8f058 100%)',
+                    color: '#000000',
+                    opacity: 0.7
                   }
                 }}
               >
-                Submit
+                {createLogMutation.isPending ? (
+                  <Stack direction="row" spacing={1.25} alignItems="center">
+                    <CircularProgress size={16} thickness={5} sx={{ color: '#000000' }} />
+                    <span>Sending...</span>
+                  </Stack>
+                ) : (
+                  'Submit'
+                )}
               </Button>
             </Stack>
             {submitted && <Alert severity="success">Delivery log submitted successfully! Redirecting...</Alert>}
@@ -800,6 +838,7 @@ export default function KioskForms() {
           onClose={() => setShowSummary(false)}
           onConfirm={submitForm}
           summaryData={summaryData}
+          isSubmitting={createLogMutation.isPending}
         />
       ) : null}
     </div>
