@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { HiOutlineCog6Tooth, HiOutlineLink, HiOutlineBuildingOffice2, HiOutlineTrash } from 'react-icons/hi2'
+import { HiOutlineCog6Tooth, HiOutlineLink, HiOutlineBuildingOffice2, HiOutlineTrash, HiOutlineArrowTopRightOnSquare } from 'react-icons/hi2'
 import AdminPageHeader from '../components/AdminPageHeader'
 import { getCompanies } from '../../../services/companyAPIServices'
 import {
@@ -162,6 +162,32 @@ export default function AdminSpreadsheetSettings() {
           <h3 className="text-lg font-extrabold text-slate-900">Global Spreadsheet</h3>
         </div>
 
+        {settings?.global_spreadsheet_url && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-2">Current Global Spreadsheet</p>
+            <div className="flex items-center justify-between gap-3">
+              <a
+                href={settings.global_spreadsheet_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 text-sm text-slate-700 underline decoration-dotted underline-offset-4 break-all"
+              >
+                {settings.global_spreadsheet_url}
+              </a>
+              <button
+                type="button"
+                className="admin-btn-secondary whitespace-nowrap"
+                onClick={() => window.open(settings.global_spreadsheet_url, '_blank')}
+                disabled={isBusy}
+                aria-label="View current global spreadsheet in new tab"
+              >
+                <HiOutlineArrowTopRightOnSquare />
+                View
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-slate-700" htmlFor="globalSpreadsheet">
             Global spreadsheet URL or ID
@@ -179,15 +205,20 @@ export default function AdminSpreadsheetSettings() {
           </p>
         </div>
 
-        <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
-          <input
-            type="checkbox"
-            checked={fallbackToGlobal}
-            onChange={(event) => setFallbackToGlobal(event.target.checked)}
-            disabled={isBusy || isSettingsLoading}
-          />
-          Enable fallback to global sheet
-        </label>
+        <div className="space-y-2">
+          <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <input
+              type="checkbox"
+              checked={fallbackToGlobal}
+              onChange={(event) => setFallbackToGlobal(event.target.checked)}
+              disabled={isBusy || isSettingsLoading}
+            />
+            Enable fallback to global sheet
+          </label>
+          <p className="text-xs text-red-500 ml-6">
+            When enabled, deliveries for companies without a specific spreadsheet will be saved to the global spreadsheet. When disabled, these deliveries won't be saved to any spreadsheet.
+          </p>
+        </div>
 
         <div>
           <button
@@ -287,16 +318,28 @@ export default function AdminSpreadsheetSettings() {
                       </a>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        className="admin-btn-secondary"
-                        onClick={() => deleteMappingMutation.mutate(mapping.id)}
-                        disabled={isBusy}
-                        aria-label={`Remove mapping for ${mapping.company_name}`}
-                      >
-                        <HiOutlineTrash />
-                        Remove
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          className="admin-btn-secondary"
+                          onClick={() => window.open(mapping.spreadsheet_url, '_blank')}
+                          disabled={isBusy}
+                          aria-label={`View spreadsheet for ${mapping.company_name}`}
+                        >
+                          <HiOutlineArrowTopRightOnSquare />
+                          View
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-btn-secondary"
+                          onClick={() => deleteMappingMutation.mutate(mapping.id)}
+                          disabled={isBusy}
+                          aria-label={`Remove mapping for ${mapping.company_name}`}
+                        >
+                          <HiOutlineTrash />
+                          Remove
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

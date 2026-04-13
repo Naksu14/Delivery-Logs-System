@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { HiArrowDownTray, HiBuildingOffice2, HiCalendarDays, HiClipboardDocumentList, HiMagnifyingGlass } from 'react-icons/hi2'
 import AdminPageHeader from '../components/AdminPageHeader'
 import { getDeliveryLogs } from '../../../services/deliveriesServices'
@@ -8,6 +9,12 @@ import { getCompanies } from '../../../services/companyAPIServices'
 import './admin-home.css'
 
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const CHART_COLORS = {
+  parcel: '#a3d977',
+  mail: '#4baa2d',
+  others: '#d4df45',
+}
 
 function normalizeType(type = '') {
   const value = String(type).toLowerCase()
@@ -70,6 +77,7 @@ function StatusBadge({ status }) {
 export default function AdminHome() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
+  const [analyticsRange, setAnalyticsRange] = useState('week')
 
   const {
     data: deliveryData,
@@ -121,30 +129,56 @@ export default function AdminHome() {
   }, [companies.length, deliveries, deliveryData?.meta?.totalItems, now, weekStart])
 
   const chartData = useMemo(() => {
-    const weekMatrix = WEEK_DAYS.map((day) => ({ day, parcel: 0, mail: 0, others: 0 }))
     const typeTotals = { parcel: 0, mail: 0, others: 0 }
+    const startOfWeek = getWeekStart(now)
+    const startOfNextWeek = new Date(startOfWeek)
+    startOfNextWeek.setDate(startOfNextWeek.getDate() + 7)
+
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    const monthWeeks = Math.max(4, Math.ceil(monthEnd.getDate() / 7))
+
+    const series =
+      analyticsRange === 'week'
+        ? WEEK_DAYS.map((label) => ({ label, parcel: 0, mail: 0, others: 0 }))
+        : analyticsRange === 'month'
+          ? Array.from({ length: monthWeeks }, (_, index) => ({ label: `W${index + 1}`, parcel: 0, mail: 0, others: 0 }))
+          : MONTH_LABELS.map((label) => ({ label, parcel: 0, mail: 0, others: 0 }))
 
     deliveries.forEach((item) => {
-      const type = normalizeType(item?.delivery_type)
-      typeTotals[type] += 1
-
       const date = new Date(item?.date_received)
-      if (Number.isNaN(date.getTime()) || date < weekStart) return
+      if (Number.isNaN(date.getTime())) return
 
-      const dayIndex = date.getDay()
-      const mondayIndex = dayIndex === 0 ? 6 : dayIndex - 1
-      if (weekMatrix[mondayIndex]) {
-        weekMatrix[mondayIndex][type] += 1
+      let bucketIndex = -1
+
+      if (analyticsRange === 'week') {
+        if (date < startOfWeek || date >= startOfNextWeek) return
+        const dayIndex = date.getDay()
+        bucketIndex = dayIndex === 0 ? 6 : dayIndex - 1
+      } else if (analyticsRange === 'month') {
+        if (date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) return
+        bucketIndex = Math.floor((date.getDate() - 1) / 7)
+      } else {
+        if (date.getFullYear() !== now.getFullYear()) return
+        bucketIndex = date.getMonth()
+      }
+
+      if (bucketIndex < 0 || !series[bucketIndex]) return
+
+      const type = normalizeType(item?.delivery_type)
+      if (typeof typeTotals[type] === 'number') {
+        typeTotals[type] += 1
+        series[bucketIndex][type] += 1
       }
     })
 
     const maxValue = Math.max(
       1,
-      ...weekMatrix.map((item) => Math.max(item.parcel, item.mail, item.others))
+      ...series.map((item) => Math.max(item.parcel, item.mail, item.others))
     )
 
-    return { weekMatrix, typeTotals, maxValue }
-  }, [deliveries, weekStart])
+    return { series, typeTotals, maxValue }
+  }, [analyticsRange, deliveries, now])
 
   const recentDeliveries = useMemo(() => {
     const keyword = search.trim().toLowerCase()
@@ -190,7 +224,7 @@ export default function AdminHome() {
     const othersDeg = 360 - parcelDeg - mailDeg
 
     return {
-      background: `conic-gradient(#0f1f00 0deg ${parcelDeg}deg, #4baa2d ${parcelDeg}deg ${parcelDeg + mailDeg}deg, #d4df45 ${parcelDeg + mailDeg}deg ${parcelDeg + mailDeg + othersDeg}deg)`
+      background: `conic-gradient(${CHART_COLORS.parcel} 0deg ${parcelDeg}deg, ${CHART_COLORS.mail} ${parcelDeg}deg ${parcelDeg + mailDeg}deg, ${CHART_COLORS.others} ${parcelDeg + mailDeg}deg ${parcelDeg + mailDeg + othersDeg}deg)`
     }
   }, [chartData.typeTotals])
 
@@ -292,30 +326,33 @@ export default function AdminHome() {
               <span className="legend-item"><i className="legend-dot is-mail" /> Mails</span>
               <span className="legend-item"><i className="legend-dot is-others" /> Others</span>
             </div>
+            <select
+              className="admin-home-filter-select"
+              value={analyticsRange}
+              onChange={(event) => setAnalyticsRange(event.target.value)}
+              aria-label="Filter analytics by period"
+            >
+              <option value="week">Week</option>
+              <option value="month">Month</option>
+              <option value="year">Year</option>
+            </select>
           </div>
 
-          <div className="admin-home-bars-wrap">
-            {chartData.weekMatrix.map((row) => (
-              <div key={row.day} className="admin-home-bar-col">
-                <div className="admin-home-bar-stack">
-                  <div className="bar-seg">
-                    <span style={{ height: `${(row.parcel / chartData.maxValue) * 170}px` }} className="is-parcel" />
-                    <span className="bar-tooltip tooltip-parcel">{row.parcel} Parcels</span>
-                  </div>
-
-                  <div className="bar-seg">
-                    <span style={{ height: `${(row.mail / chartData.maxValue) * 170}px` }} className="is-mail" />
-                    <span className="bar-tooltip tooltip-mail">{row.mail} Mails</span>
-                  </div>
-
-                  <div className="bar-seg">
-                    <span style={{ height: `${(row.others / chartData.maxValue) * 170}px` }} className="is-others" />
-                    <span className="bar-tooltip tooltip-others">{row.others} Others</span>
-                  </div>
-                </div>
-                <p>{row.day}</p>
-              </div>
-            ))}
+          <div className="admin-home-rechart-wrap">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={chartData.series} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+                <Tooltip
+                  cursor={{ fill: 'rgba(241, 245, 249, 0.65)' }}
+                  contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', background: '#ffffff' }}
+                />
+                <Bar dataKey="parcel" name="Parcel" fill={CHART_COLORS.parcel} radius={[6, 6, 0, 0]} maxBarSize={22} />
+                <Bar dataKey="mail" name="Mails" fill={CHART_COLORS.mail} radius={[6, 6, 0, 0]} maxBarSize={22} />
+                <Bar dataKey="others" name="Others" fill={CHART_COLORS.others} radius={[6, 6, 0, 0]} maxBarSize={22} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </article>
 

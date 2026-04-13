@@ -251,15 +251,15 @@
 }
 
 .is-parcel {
-  background: #dbe6cf; /* light */
+  background: #a3d977;
 }
 
 .is-mail {
-  background: #4baa2d; /* medium */
+  background: #4baa2d;
 }
 
 .is-others {
-  background: #0f1f00; /* dark */
+  background: #d4df45;
 }
 
 .admin-home-chart-legend {
@@ -267,6 +267,30 @@
   gap: 12px;
   align-items: center;
   margin-bottom: 10px;
+}
+
+.admin-home-panel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.admin-home-filter-select {
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: #374151;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-home-rechart-wrap {
+  width: 100%;
+  min-height: 280px;
+  padding: 4px 2px 0;
 }
 
 .admin-home-chart-legend .legend-item {
@@ -509,5 +533,10 @@
 
   .admin-home-search input {
     width: 120px;
+  }
+
+  .admin-home-panel-controls {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

@@ -64,6 +64,25 @@ export function AuthProvider({ children }) {
     })
   }
 
+  const updateUser = (partialUser) => {
+    setAuthState((prev) => {
+      if (!prev.user) return prev
+
+      const nextUser = { ...prev.user, ...partialUser }
+      const nextState = { ...prev, user: nextUser }
+
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          user: nextUser,
+          accessToken: prev.accessToken
+        })
+      )
+
+      return nextState
+    })
+  }
+
   const value = useMemo(
     () => ({
       user: authState.user,
@@ -71,7 +90,8 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(authState.accessToken),
       isLoading: authState.isLoading,
       login,
-      logout
+      logout,
+      updateUser
     }),
     [authState]
   )

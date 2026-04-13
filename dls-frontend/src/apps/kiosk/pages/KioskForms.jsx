@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   FormControl,
@@ -527,30 +528,74 @@ export default function KioskForms() {
                 {formData.deliveryFor === 'Company' ? (
                   <div>
                     <FieldLabel icon={FaBuilding} text="Company" required />
-                    <FormControl fullWidth sx={fieldSx}>
-                      <Select
-                        name="companyId"
-                        value={formData.companyId}
-                        onChange={onChange}
-                        displayEmpty
-                        required={formData.deliveryFor === 'Company'}
-                        disabled={isCompaniesLoading}
-                      >
-                        <MenuItem value="" disabled>
-                          {isCompaniesLoading ? 'Loading companies...' : companySelectPlaceholder}
-                        </MenuItem>
-                        {companies.map((company) => (
-                          <MenuItem key={company.id} value={String(company.id)}>
-                            {getCompanyLabel(company)}
-                          </MenuItem>
-                        ))}
-                        <MenuItem value="Not Listed">Not Listed</MenuItem>
-                      </Select>
-                    </FormControl>
-                    {isCompaniesError && (
-                      <Typography sx={{ mt: 1, fontSize: '0.9rem', color: '#b45309' }}>
-                        Could not load companies. You can still use Not Listed.
-                      </Typography>
+                    {companies.length > 0 || isCompaniesLoading ? (
+                      <>
+                        <Autocomplete
+                          options={[
+                            ...companies.map((company) => ({
+                              id: String(company.id),
+                              label: getCompanyLabel(company),
+                              isNotListed: false
+                            })),
+                            { id: 'Not Listed', label: 'Not Listed', isNotListed: true }
+                          ]}
+                          value={formData.companyId ? companies.length > 0 ? companies.find((c) => String(c.id) === String(formData.companyId)) ? { id: String(formData.companyId), label: getCompanyLabel(companies.find((c) => String(c.id) === String(formData.companyId))), isNotListed: false } : { id: 'Not Listed', label: 'Not Listed', isNotListed: true } : null : null}
+                          onChange={(event, newValue) => {
+                            if (newValue) {
+                              setFormData((prev) => ({
+                                ...prev,
+                                companyId: newValue.id,
+                                companyNameManual: newValue.isNotListed ? prev.companyNameManual : ''
+                              }))
+                            } else {
+                              setFormData((prev) => ({
+                                ...prev,
+                                companyId: '',
+                                companyNameManual: ''
+                              }))
+                            }
+                          }}
+                          getOptionLabel={(option) => option?.label || ''}
+                          isOptionEqualToValue={(option, value) => option?.id === value?.id}
+                          loading={isCompaniesLoading}
+                          disabled={isCompaniesLoading}
+                          freeSolo={false}
+                          disableClearable={false}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              placeholder={isCompaniesLoading ? 'Loading companies...' : companySelectPlaceholder}
+                              required
+                              sx={fieldSx}
+                              InputProps={{
+                                ...params.InputProps,
+                                startAdornment: (
+                                  <InputAdornment position="start" sx={{ mr: 1 }}>
+                                    <FaBuilding size={18} style={{ color: COLORS.primaryBrown }} />
+                                  </InputAdornment>
+                                )
+                              }}
+                            />
+                          )}
+                        />
+                        {isCompaniesError && (
+                          <Typography sx={{ mt: 1, fontSize: '0.9rem', color: '#b45309' }}>
+                            Could not load companies. You can still use Not Listed.
+                          </Typography>
+                        )}
+                      </>
+                    ) : (
+                      <FormControl fullWidth sx={fieldSx}>
+                        <Select
+                          name="companyId"
+                          value="Not Listed"
+                          displayEmpty
+                          required
+                          disabled
+                        >
+                          <MenuItem value="Not Listed">Not Listed</MenuItem>
+                        </Select>
+                      </FormControl>
                     )}
                     {formData.companyId === 'Not Listed' && (
                       <TextField

@@ -17,6 +17,9 @@
   display: flex;
   gap: 18px;
   justify-content: space-between;
+  position: sticky;
+  top: 14px;
+  z-index: 130;
   padding: 12px 20px;
 }
 

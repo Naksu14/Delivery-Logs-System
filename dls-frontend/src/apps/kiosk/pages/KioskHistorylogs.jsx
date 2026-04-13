@@ -133,15 +133,16 @@ const StatusChip = styled('span')(({ status }) => {
 })
 
 const columnConfig = [
-  { id: 'date_received', label: 'Date Delivered', shortLabel: 'Delivered', weight: 13 },
-  { id: 'company_name', label: 'Company', shortLabel: 'Company', weight: 25 },
-  { id: 'delivery_type', label: 'Type', shortLabel: 'Type', weight: 9 },
-  { id: 'partner', label: 'Partner', shortLabel: 'Partner', weight: 14 },
-  { id: 'deliverer_name', label: 'Deliverer', shortLabel: 'Deliverer', weight: 13 },
-  { id: 'is_status', label: 'Status', shortLabel: 'Status', weight: 10 },
+  { id: 'date_received', label: 'Date Delivered', shortLabel: 'Delivered', weight: 12 },
+  { id: 'company_name', label: 'Company', shortLabel: 'Company', weight: 22 },
+  { id: 'recipient_name', label: 'Recipient Name', shortLabel: 'Recipient', weight: 12 },
+  { id: 'delivery_type', label: 'Type', shortLabel: 'Type', weight: 8 },
+  { id: 'partner', label: 'Partner', shortLabel: 'Partner', weight: 13 },
+  { id: 'deliverer_name', label: 'Deliverer', shortLabel: 'Deliverer', weight: 12 },
+  { id: 'is_status', label: 'Status', shortLabel: 'Status', weight: 9 },
   { id: 'received_by', label: 'Received By', shortLabel: 'Recv By', weight: 8 },
-  { id: 'received_at', label: 'Date Received', shortLabel: 'Date Rec', weight: 8 },
-  { id: 'action', label: 'Action', shortLabel: 'Action', weight: 10 }
+  { id: 'received_at', label: 'Date Received', shortLabel: 'Date Rec', weight: 7 },
+  { id: 'action', label: 'Action', shortLabel: 'Action', weight: 7 }
 ]
 
 function normalizeWeights(columns) {
@@ -475,6 +476,7 @@ export default function KioskHistoryLogs() {
       const time = formatTime(log?.date_received)
       return date === '—' ? '—' : `${date} ${time}`
     }
+    if (columnId === 'recipient_name') return log?.recipient_name || '—'
     if (columnId === 'partner') return log?.courier_type_name || log?.supplier_description || log?.delivery_partner || '—'
     if (columnId === 'received_at') {
       // Only show received_at if delivery has been verified/released

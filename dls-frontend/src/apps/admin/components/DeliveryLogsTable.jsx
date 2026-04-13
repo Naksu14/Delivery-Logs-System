@@ -65,6 +65,7 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
               </div>
             </th>
             <th>Company</th>
+            <th>Recipient Name</th>
             <th>Delivery Type</th>
             <th>Deliverer</th>
             <th>Courier/Supplier</th>
@@ -79,6 +80,7 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
           {isLoading
             ? Array.from({ length: SKELETON_ROWS }).map((_, index) => (
                 <tr key={`skeleton-${index}`} className="delivery-logs-table__skeleton-row" aria-hidden="true">
+                  <td><span className="delivery-logs-table__skeleton" /></td>
                   <td><span className="delivery-logs-table__skeleton" /></td>
                   <td><span className="delivery-logs-table__skeleton" /></td>
                   <td><span className="delivery-logs-table__skeleton" /></td>
@@ -103,6 +105,7 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
               </td>
               <td>{showReferenceCodes ? delivery.reference_code || '—' : maskReferenceCode(delivery.reference_code)}</td>
               <td>{delivery.company_name || '—'}</td>
+              <td>{delivery.recipient_name || '—'}</td>
               <td>{delivery.delivery_type || '—'}</td>
               <td>{delivery.deliverer_name || '—'}</td>
               <td>{delivery.courier_type_name || delivery.delivery_partner || '—'}</td>
@@ -163,7 +166,7 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
           ))
           ) : (
             <tr>
-              <td colSpan={11} className="delivery-logs-table__empty">No delivery records found.</td>
+              <td colSpan={12} className="delivery-logs-table__empty">No delivery records found.</td>
             </tr>
           )}
         </tbody>

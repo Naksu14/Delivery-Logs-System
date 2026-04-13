@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, Logger, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, Logger, ParseIntPipe, UseGuards, Req } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -29,10 +29,23 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  findMe(@Req() req: any) {
+    return this.usersService.findOne(Number(req.user.id));
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.findOne(id);
+  }
+
+  @Put('me')
+  @UseGuards(JwtAuthGuard)
+  updateMe(@Req() req: any, @Body() updateUserDto: UpdateUserDto) {
+    const { fullname, email, password } = updateUserDto;
+    return this.usersService.update(Number(req.user.id), { fullname, email, password });
   }
 
   @Put(':id')

@@ -326,6 +326,23 @@ export default function AdminDeliveryLogs() {
               </div>
             </div>
           </section>
+
+          <section className="rounded-[22px] border border-slate-200 bg-white p-4 mt-4">
+            <h3 className="mb-4 text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">Receiver Signature</h3>
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+              {selectedDelivery?.receiver_signature ? (
+                <img
+                  src={selectedDelivery.receiver_signature}
+                  alt="Receiver signature"
+                  className="max-h-[260px] w-full max-w-[420px] rounded-3xl border border-slate-200 bg-slate-50 object-contain"
+                />
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                  Signature image not available.
+                </div>
+              )}
+            </div>
+          </section>
         </ModalShell>
 
         <ModalShell
