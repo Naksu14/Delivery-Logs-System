@@ -7,7 +7,6 @@ import CompaniesDataTable from '../components/companies/CompaniesDataTable'
 import CompaniesTablePagination from '../components/companies/CompaniesTablePagination'
 import CompaniesTableToolbar from '../components/companies/CompaniesTableToolbar'
 import CompaniesTableSkeleton from '../components/companies/CompaniesTableSkeleton'
-import { MOCK_COMPANIES } from '../components/companies/mockCompanies'
 import { getCompanies } from '../../../services/companyAPIServices'
 
 function normalizeCompanies(payload) {
@@ -27,7 +26,7 @@ function normalizeCompanyType(packageTier = '') {
 }
 
 function normalizeStatus(company) {
-  const status = company?.status || (company?.is_active ? 'active' : 'inactive')
+  const status = company?.contract_status || company?.status || (company?.is_active ? 'active' : 'inactive')
   return String(status).toLowerCase()
 }
 
@@ -65,7 +64,6 @@ export default function AdminCompanies() {
   const [pageSize, setPageSize] = useState(10)
   const [sortBy, setSortBy] = useState('company_name')
   const [sortDirection, setSortDirection] = useState('asc')
-  const [useMockData, setUseMockData] = useState(false)
 
   const debouncedSearch = useDebounce(search, 250)
 
@@ -79,14 +77,13 @@ export default function AdminCompanies() {
   }, [debouncedSearch, typeFilter, statusFilter, pageSize])
 
   const companies = useMemo(() => {
-    const source = useMockData ? MOCK_COMPANIES : normalizeCompanies(data)
-    return source.map((company) => ({
+    return normalizeCompanies(data).map((company) => ({
       ...company,
       package_tier: normalizeCompanyType(company.package_tier),
       status: normalizeStatus(company),
       delivery_count: normalizeDeliveryCount(company),
     }))
-  }, [data, useMockData])
+  }, [data])
 
   const packageTypeOptions = useMemo(
     () => [...new Set(companies.map((company) => company.package_tier).filter(Boolean))],
@@ -165,16 +162,15 @@ export default function AdminCompanies() {
         >
           {totalItems} result{totalItems === 1 ? '' : 's'} found
           {debouncedSearch ? ` for "${debouncedSearch}"` : ''}
-          {useMockData ? ' using mock data' : ''}
         </p>
 
-        {isError && !useMockData ? (
+        {isError ? (
           <div className="mx-4 my-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
             Unable to load companies right now. Please try again.
           </div>
         ) : null}
 
-        {isLoading && !useMockData ? <CompaniesTableSkeleton /> : null}
+        {isLoading ? <CompaniesTableSkeleton /> : null}
 
         {!isLoading && paginatedCompanies.length > 0 ? (
           <>
@@ -205,17 +201,6 @@ export default function AdminCompanies() {
           <div className="p-4">{renderEmptyState('No matching companies', 'Try adjusting your search or filter selections.')}</div>
         ) : null}
 
-        {!isLoading && isError && !useMockData ? (
-          <div className="flex justify-end px-4 pb-4">
-            <button
-              type="button"
-              onClick={() => setUseMockData(true)}
-              className="rounded-xl border border-lime-700 bg-lime-200 px-3 py-2 text-sm font-semibold text-lime-900"
-            >
-              Switch to mock data demo
-            </button>
-          </div>
-        ) : null}
       </div>
     </section>
   )
