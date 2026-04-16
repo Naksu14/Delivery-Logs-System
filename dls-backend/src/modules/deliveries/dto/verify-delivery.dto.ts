@@ -3,7 +3,7 @@ import { IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
 export class VerifyDeliveryDto {
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[A-Z0-9]{5}$/)
+  @Matches(/^[A-Z0-9]{4}$/)
   reference_code!: string;
 
   @IsString()

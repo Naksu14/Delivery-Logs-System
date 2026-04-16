@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import CompanySearchSelect from '../CompanySearchSelect';
 import { createDeliveryLog } from '../../../../services/deliveriesServices';
 import { getCompanies } from '../../../../services/companyAPIServices';
 import { getDeliveryPartners } from '../../../../services/deliveryPartnersServices';
@@ -180,24 +181,22 @@ export default function NewDeliveryForm() {
 
         {form.delivery_for === 'Company' ? (
           <Field label="Company" required>
-            <select
-              className={inputClass}
-              name="company_id"
-              value={form.company_id}
-              onChange={onChange}
-              required
+            <CompanySearchSelect
+              companies={companies}
+              valueId={form.company_id}
+              onChange={(valueId) => {
+                setSuccessMessage('');
+                setForm((prev) => ({
+                  ...prev,
+                  company_id: valueId,
+                  company_name_manual: valueId === 'not-listed' ? prev.company_name_manual : '',
+                }));
+              }}
+              loading={isCompaniesLoading}
               disabled={isCompaniesLoading}
-            >
-              <option value="" disabled>
-                {isCompaniesLoading ? 'Loading companies...' : 'Select company'}
-              </option>
-              {companies.map((company) => (
-                <option key={company.id} value={String(company.id)}>
-                  {getCompanyLabel(company)}
-                </option>
-              ))}
-              <option value="not-listed">Not Listed</option>
-            </select>
+              includeNotListed
+              placeholder="Select company"
+            />
           </Field>
         ) : (
           <div className="hidden md:block" aria-hidden="true" />

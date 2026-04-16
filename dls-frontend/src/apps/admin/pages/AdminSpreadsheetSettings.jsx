@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { HiOutlineCog6Tooth, HiOutlineLink, HiOutlineBuildingOffice2, HiOutlineTrash, HiOutlineArrowTopRightOnSquare } from 'react-icons/hi2'
 import AdminPageHeader from '../components/AdminPageHeader'
+import CompanySearchSelect from '../components/CompanySearchSelect'
 import { getCompanies } from '../../../services/companyAPIServices'
 import {
   getDeliverySpreadsheetSettings,
@@ -244,20 +245,15 @@ export default function AdminSpreadsheetSettings() {
             <label className="block text-sm font-semibold text-slate-700" htmlFor="companySelect">
               Company
             </label>
-            <select
+            <CompanySearchSelect
               id="companySelect"
-              className="admin-input-control"
-              value={selectedCompanyId}
-              onChange={(event) => setSelectedCompanyId(event.target.value)}
+              companies={companies}
+              valueId={selectedCompanyId}
+              onChange={setSelectedCompanyId}
+              loading={isSettingsLoading}
               disabled={isBusy || isSettingsLoading}
-            >
-              <option value="">Select company</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.company_name}
-                </option>
-              ))}
-            </select>
+              placeholder="Select company"
+            />
           </div>
 
           <div className="space-y-2">

@@ -8,8 +8,11 @@ import { getDeliveryLogs } from '../../../services/deliveriesServices'
 import { getCompanies } from '../../../services/companyAPIServices'
 import './admin-home.css'
 
-const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const ANALYTICS_RANGES = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+]
 const CHART_COLORS = {
   parcel: '#a3d977',
   mail: '#4baa2d',
@@ -48,6 +51,41 @@ function getWeekStart(date) {
   return base
 }
 
+function getMonthStart(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1)
+}
+
+function addDays(date, amount) {
+  const next = new Date(date)
+  next.setDate(next.getDate() + amount)
+  return next
+}
+
+function addMonths(date, amount) {
+  return new Date(date.getFullYear(), date.getMonth() + amount, 1)
+}
+
+function formatShortDate(date) {
+  return date.toLocaleDateString('en-CA', {
+    day: '2-digit',
+    month: 'short',
+  })
+}
+
+function formatDayLabel(date) {
+  return date.toLocaleDateString('en-CA', {
+    day: '2-digit',
+    month: 'short',
+  })
+}
+
+function formatMonthLabel(date) {
+  return date.toLocaleDateString('en-CA', {
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
 function clampName(value = '', max = 28) {
   if (!value) return '—'
   if (value.length <= max) return value
@@ -77,7 +115,7 @@ function StatusBadge({ status }) {
 export default function AdminHome() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
-  const [analyticsRange, setAnalyticsRange] = useState('week')
+  const [analyticsRange, setAnalyticsRange] = useState('daily')
 
   const {
     data: deliveryData,
@@ -130,20 +168,62 @@ export default function AdminHome() {
 
   const chartData = useMemo(() => {
     const typeTotals = { parcel: 0, mail: 0, others: 0 }
-    const startOfWeek = getWeekStart(now)
-    const startOfNextWeek = new Date(startOfWeek)
-    startOfNextWeek.setDate(startOfNextWeek.getDate() + 7)
+    const deliveryDates = deliveries
+      .map((item) => new Date(item?.date_received))
+      .filter((date) => !Number.isNaN(date.getTime()))
 
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    const monthWeeks = Math.max(4, Math.ceil(monthEnd.getDate() / 7))
+    if (deliveryDates.length === 0) {
+      return { series: [], typeTotals, label: 'No delivery data available' }
+    }
+
+    const earliestDate = new Date(Math.min(...deliveryDates.map((date) => date.getTime())))
+    const latestDate = new Date(Math.max(...deliveryDates.map((date) => date.getTime())))
 
     const series =
-      analyticsRange === 'week'
-        ? WEEK_DAYS.map((label) => ({ label, parcel: 0, mail: 0, others: 0 }))
-        : analyticsRange === 'month'
-          ? Array.from({ length: monthWeeks }, (_, index) => ({ label: `W${index + 1}`, parcel: 0, mail: 0, others: 0 }))
-          : MONTH_LABELS.map((label) => ({ label, parcel: 0, mail: 0, others: 0 }))
+      analyticsRange === 'daily'
+        ? (() => {
+            const startDate = new Date(earliestDate)
+            const endDate = new Date(latestDate)
+            startDate.setHours(0, 0, 0, 0)
+            endDate.setHours(0, 0, 0, 0)
+            const dayCount = Math.floor((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1
+            return Array.from({ length: dayCount }, (_, index) => ({
+              label: formatDayLabel(addDays(startDate, index)),
+              parcel: 0,
+              mail: 0,
+              others: 0,
+            }))
+          })()
+        : analyticsRange === 'weekly'
+          ? (() => {
+              const startWeek = getWeekStart(earliestDate)
+              const endWeek = getWeekStart(latestDate)
+              const weekCount = Math.floor((endWeek.getTime() - startWeek.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+              return Array.from({ length: weekCount }, (_, index) => {
+                const weekStart = addDays(startWeek, index * 7)
+                const weekEnd = addDays(weekStart, 6)
+                return {
+                  label: `${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)}`,
+                  parcel: 0,
+                  mail: 0,
+                  others: 0,
+                }
+              })
+            })()
+          : (() => {
+              const startMonth = getMonthStart(earliestDate)
+              const endMonth = getMonthStart(latestDate)
+              const monthCount = (endMonth.getFullYear() - startMonth.getFullYear()) * 12 + (endMonth.getMonth() - startMonth.getMonth()) + 1
+              return Array.from({ length: monthCount }, (_, index) => {
+                const monthDate = addMonths(startMonth, index)
+                return {
+                  label: formatMonthLabel(monthDate),
+                  parcel: 0,
+                  mail: 0,
+                  others: 0,
+                }
+              })
+            })()
 
     deliveries.forEach((item) => {
       const date = new Date(item?.date_received)
@@ -151,16 +231,21 @@ export default function AdminHome() {
 
       let bucketIndex = -1
 
-      if (analyticsRange === 'week') {
-        if (date < startOfWeek || date >= startOfNextWeek) return
-        const dayIndex = date.getDay()
-        bucketIndex = dayIndex === 0 ? 6 : dayIndex - 1
-      } else if (analyticsRange === 'month') {
-        if (date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) return
-        bucketIndex = Math.floor((date.getDate() - 1) / 7)
+      if (analyticsRange === 'daily') {
+        const startDate = new Date(earliestDate)
+        startDate.setHours(0, 0, 0, 0)
+        const currentDate = new Date(date)
+        currentDate.setHours(0, 0, 0, 0)
+        bucketIndex = Math.floor((currentDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000))
+      } else if (analyticsRange === 'weekly') {
+        const startWeek = getWeekStart(earliestDate)
+        const dateWeekStart = getWeekStart(date)
+        bucketIndex = Math.floor((dateWeekStart.getTime() - startWeek.getTime()) / (7 * 24 * 60 * 60 * 1000))
+        if (bucketIndex < 0 || bucketIndex >= series.length) return
       } else {
-        if (date.getFullYear() !== now.getFullYear()) return
-        bucketIndex = date.getMonth()
+        const startMonth = getMonthStart(earliestDate)
+        bucketIndex = (date.getFullYear() - startMonth.getFullYear()) * 12 + (date.getMonth() - startMonth.getMonth())
+        if (bucketIndex < 0 || bucketIndex >= series.length) return
       }
 
       if (bucketIndex < 0 || !series[bucketIndex]) return
@@ -172,12 +257,14 @@ export default function AdminHome() {
       }
     })
 
-    const maxValue = Math.max(
-      1,
-      ...series.map((item) => Math.max(item.parcel, item.mail, item.others))
-    )
+    const label =
+      analyticsRange === 'daily'
+        ? `${formatDayLabel(earliestDate)} to ${formatDayLabel(latestDate)}`
+        : analyticsRange === 'weekly'
+          ? `${formatShortDate(getWeekStart(earliestDate))} to ${formatShortDate(addDays(getWeekStart(latestDate), 6))}`
+          : `${formatMonthLabel(getMonthStart(earliestDate))} to ${formatMonthLabel(getMonthStart(latestDate))}`
 
-    return { series, typeTotals, maxValue }
+    return { series, typeTotals, label }
   }, [analyticsRange, deliveries, now])
 
   const recentDeliveries = useMemo(() => {
@@ -317,8 +404,21 @@ export default function AdminHome() {
 
       <div className="admin-home-analytics-grid">
         <article className="admin-home-panel">
-          <div className="admin-home-panel-head">
+          <div className="admin-home-panel-head admin-home-panel-head--chart">
             <h3>Delivery Analytics</h3>
+            <div className="admin-home-range-tabs" role="tablist" aria-label="Select analytics period">
+              {ANALYTICS_RANGES.map((range) => (
+                <button
+                  key={range.value}
+                  type="button"
+                  className={`admin-home-range-tab ${analyticsRange === range.value ? 'is-active' : ''}`}
+                  aria-pressed={analyticsRange === range.value}
+                  onClick={() => setAnalyticsRange(range.value)}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="admin-home-panel-controls">
             <div className="admin-home-chart-legend">
@@ -326,23 +426,14 @@ export default function AdminHome() {
               <span className="legend-item"><i className="legend-dot is-mail" /> Mails</span>
               <span className="legend-item"><i className="legend-dot is-others" /> Others</span>
             </div>
-            <select
-              className="admin-home-filter-select"
-              value={analyticsRange}
-              onChange={(event) => setAnalyticsRange(event.target.value)}
-              aria-label="Filter analytics by period"
-            >
-              <option value="week">Week</option>
-              <option value="month">Month</option>
-              <option value="year">Year</option>
-            </select>
+            <p className="admin-home-chart-label">{chartData.label}</p>
           </div>
 
           <div className="admin-home-rechart-wrap">
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={chartData.series} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
                 <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
                 <Tooltip
                   cursor={{ fill: 'rgba(241, 245, 249, 0.65)' }}

@@ -308,8 +308,7 @@ export default function KioskHistoryLogs() {
     const normalizedCode = verificationForm.reference_code.trim().toUpperCase()
     const receivedBy = verificationForm.received_by.trim()
 
-    if (!/^[A-Z0-9]{5}$/.test(normalizedCode)) {
-      setVerificationError('Reference code must be exactly 5 uppercase letters or numbers.')
+    if (!/^[A-Z0-9]{4}$/.test(normalizedCode)) {
       return
     }
 
@@ -870,7 +869,7 @@ export default function KioskHistoryLogs() {
                       <input
                         id="verify-reference-code"
                         type="text"
-                        placeholder="Enter 5-character code"
+                        placeholder="Enter 4 or 5-character code"
                         value={verificationForm.reference_code}
                         onChange={(event) => setVerificationForm((prev) => ({
                           ...prev,

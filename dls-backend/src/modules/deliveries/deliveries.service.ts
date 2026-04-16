@@ -27,7 +27,7 @@ export class DeliveriesService {
 
   private generateReferenceCode(): string {
     let code = '';
-    for (let i = 0; i < 5; i += 1) {
+    for (let i = 0; i < 4; i += 1) {
       const index = randomInt(0, this.referenceCodeCharset.length);
       code += this.referenceCodeCharset[index];
     }

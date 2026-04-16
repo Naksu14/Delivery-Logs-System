@@ -71,10 +71,10 @@ function DetailBlock({ label, value, highlight = false }) {
 function ModalShell({ open, onClose, title, subtitle, icon: Icon, children, actions, size = 'lg' }) {
   if (!open) return null;
 
-  const maxWidthClass = size === 'sm' ? 'max-w-md' : size === 'xl' ? 'max-w-6xl' : 'max-w-4xl';
+  const maxWidthClass = size === 'sm' ? 'max-w-xs' : size === 'xl' ? 'max-w-3xl' : 'max-w-2xl';
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
+    <div className="fixed inset-0 z-[140] overflow-y-auto px-3 py-3 sm:px-4 sm:py-4">
       <button
         type="button"
         className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]"
@@ -82,7 +82,7 @@ function ModalShell({ open, onClose, title, subtitle, icon: Icon, children, acti
         onClick={onClose}
       />
       <div className="relative z-10 flex min-h-full items-start justify-center">
-        <div className={`relative my-2 flex w-full ${maxWidthClass} max-h-[calc(100vh-1.5rem)] flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_30px_90px_rgba(0,0,0,0.2)] ring-1 ring-black/5 sm:my-4 sm:max-h-[calc(100vh-3rem)]`}>
+        <div className={`relative my-1 flex w-full ${maxWidthClass} max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_20px_56px_rgba(0,0,0,0.16)] ring-1 ring-black/5 sm:my-2 sm:max-h-[calc(100vh-4rem)]`}>
           <div className="sticky top-0 z-20 flex items-start justify-between gap-4 border-b border-slate-100 bg-white px-6 py-5 sm:px-7">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d4df45] text-slate-900 shadow-[0_10px_20px_rgba(191,209,55,0.3)]">
