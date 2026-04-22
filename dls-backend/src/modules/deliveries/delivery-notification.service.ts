@@ -54,18 +54,38 @@ export class DeliveryNotificationService {
     return `New delivery logged for ${companyName}`;
   }
 
+  private formatDeliveryItems(delivery: Delivery): string {
+    const items = Array.isArray(delivery.delivery_items)
+      ? delivery.delivery_items
+          .map((item) => ({
+            name: String(item?.name || '').trim(),
+            quantity: Number(item?.quantity || 1),
+          }))
+          .filter((item) => item.name.length > 0)
+      : [];
+
+    if (!items.length) {
+      return delivery.delivery_type || 'Not provided';
+    }
+
+    return items.map((item) => `${item.name} (${item.quantity > 0 ? item.quantity : 1})`).join(', ');
+  }
+
   private buildPlainText(delivery: Delivery, companyName: string): string {
     const referenceCode = delivery.reference_code || 'Not provided';
     const message = delivery.description?.trim() || 'No delivery message was provided.';
     const partner = delivery.courier_type_name || delivery.delivery_partner || 'Not provided';
     const deliveredTo = delivery.recipient_name || companyName || 'Not provided';
+    const deliveryType = this.formatDeliveryItems(delivery);
+    const totalItems = Number(delivery.total_items || 0) || 1;
 
     return [
       `A new delivery has been logged for ${companyName}.`,
       '',
       `Company: ${companyName}`,
       `Delivered to: ${deliveredTo}`,
-      `Delivery type: ${delivery.delivery_type}`,
+      `Delivery type: ${deliveryType}`,
+      `Total items: ${totalItems}`,
       `Delivery partner: ${partner}`,
       `Reference code: ${referenceCode}`,
       `Received on: ${this.formatDate(delivery.date_received)}`,
@@ -82,7 +102,8 @@ export class DeliveryNotificationService {
     const message = this.escapeHtml(delivery.description?.trim() || 'No delivery message was provided.');
     const partner = this.escapeHtml(delivery.courier_type_name || delivery.delivery_partner || 'Not provided');
     const deliveredTo = this.escapeHtml(delivery.recipient_name || companyName || 'Not provided');
-    const deliveryType = this.escapeHtml(delivery.delivery_type || 'Not provided');
+    const deliveryType = this.escapeHtml(this.formatDeliveryItems(delivery));
+    const totalItems = this.escapeHtml(String(Number(delivery.total_items || 0) || 1));
     const receivedOn = this.escapeHtml(this.formatDate(delivery.date_received));
     const companyLabel = this.escapeHtml(companyName);
 
@@ -119,6 +140,10 @@ export class DeliveryNotificationService {
               <tr>
                 <td style="padding:12px 0;border-bottom:1px solid ${this.theme.border};color:${this.theme.muted};">Delivery type</td>
                 <td style="padding:12px 0;border-bottom:1px solid ${this.theme.border};font-weight:700;color:${this.theme.heading};">${deliveryType}</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 0;border-bottom:1px solid ${this.theme.border};color:${this.theme.muted};">Total items</td>
+                <td style="padding:12px 0;border-bottom:1px solid ${this.theme.border};font-weight:700;color:${this.theme.heading};">${totalItems}</td>
               </tr>
               <tr>
                 <td style="padding:12px 0;border-bottom:1px solid ${this.theme.border};color:${this.theme.muted};">Delivery partner</td>

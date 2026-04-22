@@ -20,6 +20,12 @@ export class Delivery {
   @Column({ type: 'varchar', length: 50 })
   delivery_type!: string;
 
+  @Column({ type: 'json', nullable: true })
+  delivery_items?: Array<{ name: string; quantity: number }>;
+
+  @Column({ type: 'int', default: 1 })
+  total_items!: number;
+
   @Column({ type: 'varchar', length: 50 })
   delivery_partner!: string;
 

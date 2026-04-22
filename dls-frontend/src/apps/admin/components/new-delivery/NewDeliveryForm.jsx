@@ -6,7 +6,7 @@ import { getCompanies } from '../../../../services/companyAPIServices';
 import { getDeliveryPartners } from '../../../../services/deliveryPartnersServices';
 import { getDeliveryTypes } from '../../../../services/deliveryTypeServices';
 
-const defaultDeliveryTypes = [];
+const defaultDeliveryTypes = ['Parcel', 'Mail', 'Other'];
 
 const initialForm = {
   delivery_for: 'Company',
@@ -14,10 +14,52 @@ const initialForm = {
   company_name_manual: '',
   recipient_name: '',
   deliverer_name: '',
-  delivery_type: '',
+  delivery_items: [],
   delivery_partner: '',
   description: ''
 };
+
+function createDeliveryItem(name = '', quantity = 1) {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name,
+    customName: '',
+    quantity,
+  };
+}
+
+function normalizeQuantity(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 1;
+  return Math.floor(parsed);
+}
+
+function isOtherDeliveryType(name) {
+  return String(name || '').trim().toLowerCase() === 'other';
+}
+
+function resolveDeliveryItemName(item) {
+  const selectedName = String(item?.name || '').trim();
+  if (!selectedName) return '';
+  if (!isOtherDeliveryType(selectedName)) return selectedName;
+  return String(item?.customName || '').trim();
+}
+
+function normalizeDeliveryItemsForPayload(items = []) {
+  return (Array.isArray(items) ? items : [])
+    .map((item) => ({
+      id: item?.id,
+      name: resolveDeliveryItemName(item),
+      quantity: normalizeQuantity(item?.quantity),
+    }))
+    .filter((item) => item.name);
+}
+
+function formatDeliveryItemsSummary(items = []) {
+  return normalizeDeliveryItemsForPayload(items)
+    .map((item) => `${item.name} (${item.quantity})`)
+    .join(', ');
+}
 
 function getCompanyLabel(company) {
   if (!company) return '';
@@ -53,6 +95,7 @@ export default function NewDeliveryForm() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(initialForm);
   const [successMessage, setSuccessMessage] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   const { data: companies = [], isLoading: isCompaniesLoading } = useQuery({
     queryKey: ['companies'],
@@ -81,32 +124,101 @@ export default function NewDeliveryForm() {
   );
 
   const deliveryTypeOptions = useMemo(() => {
-    const options = typeData
+    const apiOptions = typeData
       .map((item) => {
         const raw = String(item?.name || '').trim();
         if (!raw) return null;
+        const normalized = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
         return {
-          value: raw.toLowerCase(),
-          label: raw.charAt(0).toUpperCase() + raw.slice(1)
+          value: normalized,
+          label: normalized
         };
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter((option) => !isOtherDeliveryType(option?.value));
 
-    return options.length > 0 ? options : defaultDeliveryTypes;
+    const fallbackOptions = defaultDeliveryTypes
+      .filter((type) => !isOtherDeliveryType(type))
+      .map((type) => ({ value: type, label: type }));
+
+    const baseOptions = apiOptions.length > 0 ? apiOptions : fallbackOptions;
+    return [...baseOptions, { value: 'Other', label: 'Other' }];
   }, [typeData]);
+
+  const totalItems = useMemo(
+    () => normalizeDeliveryItemsForPayload(form.delivery_items).reduce((sum, item) => sum + item.quantity, 0),
+    [form.delivery_items]
+  );
 
   const createMutation = useMutation({
     mutationFn: createDeliveryLog,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deliveries'] });
       setSuccessMessage('Delivery log created successfully.');
+      setSubmitError('');
       setForm(initialForm);
+    },
+    onError: (error) => {
+      const apiMessage = error?.response?.data?.message;
+      const fallback = 'Failed to create delivery log. Please check required fields and try again.';
+      setSubmitError(Array.isArray(apiMessage) ? apiMessage[0] : apiMessage || fallback);
     }
   });
+
+  const addDeliveryItem = () => {
+    setSuccessMessage('');
+    setSubmitError('');
+    setForm((prev) => ({
+      ...prev,
+      delivery_items: [...(Array.isArray(prev.delivery_items) ? prev.delivery_items : []), createDeliveryItem('', 1)],
+    }));
+  };
+
+  const updateDeliveryItem = (itemId, field, value) => {
+    setSuccessMessage('');
+    setSubmitError('');
+    setForm((prev) => ({
+      ...prev,
+      delivery_items: (Array.isArray(prev.delivery_items) ? prev.delivery_items : []).map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              [field]: field === 'quantity' ? normalizeQuantity(value) : value,
+              ...(field === 'name' && !isOtherDeliveryType(value) ? { customName: '' } : {}),
+            }
+          : item
+      )
+    }));
+  };
+
+  const adjustDeliveryItemQuantity = (itemId, delta) => {
+    setSuccessMessage('');
+    setSubmitError('');
+    setForm((prev) => ({
+      ...prev,
+      delivery_items: (Array.isArray(prev.delivery_items) ? prev.delivery_items : []).map((item) => {
+        if (item.id !== itemId) return item;
+        return {
+          ...item,
+          quantity: Math.max(1, normalizeQuantity(item.quantity) + delta),
+        };
+      })
+    }));
+  };
+
+  const removeDeliveryItem = (itemId) => {
+    setSuccessMessage('');
+    setSubmitError('');
+    setForm((prev) => ({
+      ...prev,
+      delivery_items: (Array.isArray(prev.delivery_items) ? prev.delivery_items : []).filter((item) => item.id !== itemId)
+    }));
+  };
 
   const onChange = (event) => {
     const { name, value } = event.target;
     setSuccessMessage('');
+    setSubmitError('');
 
     if (name === 'delivery_for') {
       setForm((prev) => ({
@@ -132,6 +244,8 @@ export default function NewDeliveryForm() {
 
   const submit = (event) => {
     event.preventDefault();
+    setSuccessMessage('');
+    setSubmitError('');
 
     const now = new Date();
     const selectedCompany = companies.find((company) => String(company?.id) === String(form.company_id));
@@ -144,12 +258,44 @@ export default function NewDeliveryForm() {
             ? getCompanyLabel(selectedCompany)
             : '';
 
+    const preparedDeliveryItems = (Array.isArray(form.delivery_items) ? form.delivery_items : [])
+      .map((item) => ({
+        id: item?.id,
+        name: String(item?.name || '').trim(),
+        customName: String(item?.customName || '').trim(),
+        quantity: normalizeQuantity(item?.quantity),
+      }));
+
+    const hasMissingCustomOther = preparedDeliveryItems.some(
+      (item) => isOtherDeliveryType(item.name) && !item.customName
+    );
+
+    if (hasMissingCustomOther) {
+      setSubmitError('Please provide a custom delivery type for every item set to Other.');
+      return;
+    }
+
+    const normalizedDeliveryItems = normalizeDeliveryItemsForPayload(preparedDeliveryItems).map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+    }));
+
+    if (normalizedDeliveryItems.length === 0) {
+      setSubmitError('Please add at least one delivery item before creating the log.');
+      return;
+    }
+
+    const deliveryTypeSummary = formatDeliveryItemsSummary(preparedDeliveryItems);
+    const totalItemCount = normalizedDeliveryItems.reduce((sum, item) => sum + item.quantity, 0);
+
     createMutation.mutate({
       date_received: now.toISOString(),
       delivery_for: form.delivery_for,
       recipient_name: form.recipient_name,
       company_name: companyName,
-      delivery_type: form.delivery_type,
+      delivery_type: deliveryTypeSummary,
+      delivery_items: normalizedDeliveryItems,
+      total_items: totalItemCount,
       delivery_partner: form.delivery_partner,
       deliverer_name: form.deliverer_name,
       description: form.description,
@@ -240,19 +386,88 @@ export default function NewDeliveryForm() {
         </Field>
 
         <Field label="Delivery Type" required>
-          <select className={inputClass} name="delivery_type" value={form.delivery_type} onChange={onChange} required>
-            <option value="" disabled>
-              Select delivery type
-            </option>
-            {deliveryTypeOptions.length === 0 ? (
-              <option value="" disabled>No delivery types available</option>
-            ) : null}
-            {deliveryTypeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="space-y-3">
+              {(Array.isArray(form.delivery_items) ? form.delivery_items : []).map((item, index) => (
+                <div
+                  key={item.id}
+                  className={`space-y-2 ${index !== form.delivery_items.length - 1 ? 'border-b border-slate-100 pb-3' : ''}`}
+                >
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <select
+                      className={inputClass}
+                      value={item.name || ''}
+                      onChange={(event) => updateDeliveryItem(item.id, 'name', event.target.value)}
+                    >
+                      <option value="" disabled>
+                        Select delivery type
+                      </option>
+                      {deliveryTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 px-1 py-1">
+                        <button
+                          type="button"
+                          onClick={() => adjustDeliveryItemQuantity(item.id, -1)}
+                          className="h-8 w-8 rounded-md text-lg font-bold text-slate-700 hover:bg-slate-200"
+                          aria-label="Decrease quantity"
+                        >
+                          -
+                        </button>
+                        <span className="min-w-8 px-2 text-center text-sm font-bold text-slate-900">
+                          {normalizeQuantity(item.quantity)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => adjustDeliveryItemQuantity(item.id, 1)}
+                          className="h-8 w-8 rounded-md text-lg font-bold text-slate-700 hover:bg-slate-200"
+                          aria-label="Increase quantity"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removeDeliveryItem(item.id)}
+                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold uppercase tracking-[0.04em] text-red-600 hover:bg-red-100"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+
+                  {isOtherDeliveryType(item.name) ? (
+                    <input
+                      className={inputClass}
+                      value={item.customName || ''}
+                      onChange={(event) => updateDeliveryItem(item.id, 'customName', event.target.value)}
+                      placeholder="Type custom delivery type"
+                      required
+                    />
+                  ) : null}
+                </div>
+              ))}
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="button"
+                  onClick={addDeliveryItem}
+                  className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-[0.04em] text-slate-700 hover:bg-slate-100"
+                >
+                  + Add delivery type
+                </button>
+                <div className="rounded-lg border border-[#dbe48c] bg-[#f8fadf] px-3 py-2 text-xs font-extrabold uppercase tracking-[0.06em] text-slate-700">
+                  Total items: {totalItems}
+                </div>
+              </div>
+            </div>
+          </div>
         </Field>
 
         <Field label="Courier Partner" required>
@@ -299,9 +514,9 @@ export default function NewDeliveryForm() {
         </div>
       ) : null}
 
-      {createMutation.isError ? (
+      {createMutation.isError || submitError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-          Failed to create delivery log. Please check required fields and try again.
+          {submitError || 'Failed to create delivery log. Please check required fields and try again.'}
         </div>
       ) : null}
 
@@ -312,6 +527,7 @@ export default function NewDeliveryForm() {
           onClick={() => {
             setForm(initialForm);
             setSuccessMessage('');
+            setSubmitError('');
           }}
         >
           Reset

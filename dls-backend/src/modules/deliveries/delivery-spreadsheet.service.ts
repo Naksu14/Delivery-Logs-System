@@ -52,6 +52,23 @@ export class DeliverySpreadsheetService {
     return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=0`;
   }
 
+  private formatDeliveryItems(delivery: Delivery): string {
+    const items = Array.isArray(delivery.delivery_items)
+      ? delivery.delivery_items
+          .map((item) => ({
+            name: String(item?.name || '').trim(),
+            quantity: Number(item?.quantity || 1),
+          }))
+          .filter((item) => item.name.length > 0)
+      : [];
+
+    if (!items.length) {
+      return delivery.delivery_type || '';
+    }
+
+    return items.map((item) => `${item.name} (${item.quantity > 0 ? item.quantity : 1})`).join(', ');
+  }
+
   private async getOrCreateSettings(): Promise<DeliverySpreadsheetSetting> {
     let settings = await this.settingRepo.findOne({ where: { id: 1 } });
     if (!settings) {
@@ -68,11 +85,12 @@ export class DeliverySpreadsheetService {
   }
 
   private buildRow(delivery: Delivery): string[] {
+    const deliveryTypeSummary = this.formatDeliveryItems(delivery);
     return [
       new Date(delivery.date_received || delivery.created_at || new Date()).toISOString(),
       delivery.company_name || '',
       delivery.recipient_name || '',
-      delivery.delivery_type || '',
+      deliveryTypeSummary,
       delivery.deliverer_name || '',
       delivery.courier_type_name || delivery.delivery_partner || '',
       delivery.description || delivery.supplier_description || '',
@@ -134,6 +152,7 @@ export class DeliverySpreadsheetService {
     const company = row[1] || '';
     const receiverName = row[2] || '';
     const deliveryType = row[3] || '';
+    const totalItems = String(Number(delivery.total_items || 0) || 1);
     const deliverer = row[4] || '';
     const courierSupplier = row[5] || '';
     const description = row[6] || '';
@@ -171,6 +190,7 @@ export class DeliverySpreadsheetService {
         company,
         receiver_name: receiverName,
         delivery_type: deliveryType,
+        total_items: totalItems,
         deliverer,
         courier_supplier: courierSupplier,
         description,
@@ -186,6 +206,8 @@ export class DeliverySpreadsheetService {
         company_name: delivery.company_name || '',
         recipient_name: delivery.recipient_name || '',
         delivery_type: delivery.delivery_type || '',
+        delivery_items: Array.isArray(delivery.delivery_items) ? delivery.delivery_items : [],
+        total_items: Number(delivery.total_items || 0) || 1,
         deliverer_name: delivery.deliverer_name || '',
         courier_or_supplier: delivery.courier_type_name || delivery.delivery_partner || '',
         description: delivery.description || delivery.supplier_description || '',

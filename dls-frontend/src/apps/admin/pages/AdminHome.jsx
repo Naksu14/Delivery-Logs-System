@@ -26,6 +26,46 @@ function normalizeType(type = '') {
   return 'others'
 }
 
+function getDeliveryItems(delivery) {
+  const items = Array.isArray(delivery?.delivery_items)
+    ? delivery.delivery_items
+        .map((item) => ({
+          name: String(item?.name || '').trim(),
+          quantity: Number(item?.quantity || 1),
+        }))
+        .filter((item) => item.name)
+        .map((item) => ({
+          name: item.name,
+          quantity: Number.isFinite(item.quantity) && item.quantity > 0 ? Math.floor(item.quantity) : 1,
+        }))
+    : []
+
+  if (items.length > 0) return items
+
+  const fallbackName = String(delivery?.delivery_type || '').trim()
+  if (fallbackName) {
+    const fallbackQuantity = Number(delivery?.total_items || 0)
+    return [{ name: fallbackName, quantity: Number.isFinite(fallbackQuantity) && fallbackQuantity > 0 ? Math.floor(fallbackQuantity) : 1 }]
+  }
+
+  return []
+}
+
+function getTotalItems(delivery) {
+  const explicit = Number(delivery?.total_items || 0)
+  if (Number.isFinite(explicit) && explicit > 0) return Math.floor(explicit)
+
+  const items = getDeliveryItems(delivery)
+  if (!items.length) return 1
+  return items.reduce((sum, item) => sum + item.quantity, 0)
+}
+
+function getDeliveryItemsSummary(delivery) {
+  const items = getDeliveryItems(delivery)
+  if (!items.length) return '—'
+  return items.map((item) => `${item.name} (${item.quantity})`).join(', ')
+}
+
 function formatDateTime(value) {
   if (!value) return '—'
   const date = new Date(value)
@@ -151,20 +191,25 @@ export default function AdminHome() {
   const weekStart = getWeekStart(now)
 
   const kpis = useMemo(() => {
-    const todayCount = deliveries.filter((item) => isSameDay(new Date(item?.date_received), now)).length
+    const totalItems = deliveries.reduce((sum, item) => sum + getTotalItems(item), 0)
+    const todayCount = deliveries.reduce((sum, item) => {
+      const date = new Date(item?.date_received)
+      if (Number.isNaN(date.getTime())) return sum
+      return isSameDay(date, now) ? sum + getTotalItems(item) : sum
+    }, 0)
     const thisWeekCount = deliveries.filter((item) => {
       const date = new Date(item?.date_received)
       if (Number.isNaN(date.getTime())) return false
       return date >= weekStart
-    }).length
+    }).reduce((sum, item) => sum + getTotalItems(item), 0)
 
     return {
-      totalDeliveries: Number(deliveryData?.meta?.totalItems || deliveries.length),
+      totalDeliveries: totalItems,
       todayCount,
       totalCompanies: companies.length,
       thisWeekCount,
     }
-  }, [companies.length, deliveries, deliveryData?.meta?.totalItems, now, weekStart])
+  }, [companies.length, deliveries, now, weekStart])
 
   const chartData = useMemo(() => {
     const typeTotals = { parcel: 0, mail: 0, others: 0 }
@@ -250,11 +295,24 @@ export default function AdminHome() {
 
       if (bucketIndex < 0 || !series[bucketIndex]) return
 
-      const type = normalizeType(item?.delivery_type)
-      if (typeof typeTotals[type] === 'number') {
-        typeTotals[type] += 1
-        series[bucketIndex][type] += 1
+      const lineItems = getDeliveryItems(item)
+      if (!lineItems.length) {
+        const fallbackType = normalizeType(item?.delivery_type)
+        const fallbackQty = getTotalItems(item)
+        if (typeof typeTotals[fallbackType] === 'number') {
+          typeTotals[fallbackType] += fallbackQty
+          series[bucketIndex][fallbackType] += fallbackQty
+        }
+        return
       }
+
+      lineItems.forEach((lineItem) => {
+        const type = normalizeType(lineItem.name)
+        if (typeof typeTotals[type] === 'number') {
+          typeTotals[type] += lineItem.quantity
+          series[bucketIndex][type] += lineItem.quantity
+        }
+      })
     })
 
     const label =
@@ -265,7 +323,7 @@ export default function AdminHome() {
           : `${formatMonthLabel(getMonthStart(earliestDate))} to ${formatMonthLabel(getMonthStart(latestDate))}`
 
     return { series, typeTotals, label }
-  }, [analyticsRange, deliveries, now])
+  }, [analyticsRange, deliveries])
 
   const recentDeliveries = useMemo(() => {
     const keyword = search.trim().toLowerCase()
@@ -274,7 +332,7 @@ export default function AdminHome() {
         if (!keyword) return true
         const haystack = [
           item?.company_name,
-          item?.delivery_type,
+          getDeliveryItemsSummary(item),
           item?.delivery_partner,
           item?.courier_type_name,
           item?.deliverer_name,
@@ -317,11 +375,12 @@ export default function AdminHome() {
 
   const exportCsv = () => {
     const rows = [
-      ['Date & Time', 'Company', 'Delivery Type', 'Deliverer', 'Courier/Supplier', 'Description', 'Received By', 'Status'],
+      ['Date & Time', 'Company', 'Delivery Items', 'Total Items', 'Deliverer', 'Courier/Supplier', 'Description', 'Received By', 'Status'],
       ...recentDeliveries.map((item) => [
         formatDateTime(item?.date_received),
         item?.company_name || '—',
-        item?.delivery_type || '—',
+        getDeliveryItemsSummary(item),
+        String(getTotalItems(item)),
         item?.deliverer_name || '—',
         item?.courier_type_name || item?.delivery_partner || '—',
         item?.description || '—',
@@ -367,7 +426,7 @@ export default function AdminHome() {
       <div className="admin-home-kpi-grid">
         <article className="admin-home-kpi-card is-primary">
           <div className="admin-home-kpi-head">
-            <p>Total Deliveries</p>
+            <p>Total Items</p>
             <span className="admin-kpi-icon"><HiClipboardDocumentList /></span>
           </div>
           <h3>{isDeliveryLoading ? '...' : kpis.totalDeliveries}</h3>
@@ -376,7 +435,7 @@ export default function AdminHome() {
 
         <article className="admin-home-kpi-card">
           <div className="admin-home-kpi-head">
-            <p>Today's Deliveries</p>
+            <p>Today's Items</p>
             <span className="admin-kpi-icon"><HiCalendarDays /></span>
           </div>
           <h3>{isDeliveryLoading ? '...' : kpis.todayCount}</h3>
@@ -394,7 +453,7 @@ export default function AdminHome() {
 
         <article className="admin-home-kpi-card">
           <div className="admin-home-kpi-head">
-            <p>This Week</p>
+            <p>This Week Items</p>
             <span className="admin-kpi-icon"><HiClipboardDocumentList /></span>
           </div>
           <h3>{isDeliveryLoading ? '...' : kpis.thisWeekCount}</h3>
@@ -481,7 +540,8 @@ export default function AdminHome() {
                 <tr>
                   <th>Date & Time</th>
                   <th>Company</th>
-                  <th>Delivery Type</th>
+                  <th>Delivery Items</th>
+                  <th>Total Items</th>
                   <th>Deliverer</th>
                   <th>Courier/Supplier</th>
                   <th>Description</th>
@@ -492,14 +552,15 @@ export default function AdminHome() {
               <tbody>
                 {recentDeliveries.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="admin-home-empty">No delivery records found.</td>
+                    <td colSpan={9} className="admin-home-empty">No delivery records found.</td>
                   </tr>
                 ) : (
                   recentDeliveries.map((item) => (
                     <tr key={item.id}>
                       <td>{formatDateTime(item?.date_received)}</td>
                       <td>{clampName(item?.company_name, 24)}</td>
-                      <td>{item?.delivery_type || '—'}</td>
+                      <td>{clampName(getDeliveryItemsSummary(item), 32)}</td>
+                      <td>{getTotalItems(item)}</td>
                       <td>{clampName(item?.deliverer_name, 20)}</td>
                       <td>{clampName(item?.courier_type_name || item?.delivery_partner, 18)}</td>
                       <td>{clampName(item?.description, 24)}</td>

@@ -59,6 +59,29 @@ function formatOptionalTime(value) {
   return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
+function formatDeliveryItems(delivery) {
+  const items = Array.isArray(delivery?.delivery_items)
+    ? delivery.delivery_items
+        .map((item) => ({
+          name: String(item?.name || '').trim(),
+          quantity: Number(item?.quantity || 1),
+        }))
+        .filter((item) => item.name)
+    : [];
+
+  if (!items.length) return delivery?.delivery_type || '—';
+  return items.map((item) => `${item.name} (${item.quantity > 0 ? Math.floor(item.quantity) : 1})`).join(', ');
+}
+
+function getTotalItems(delivery) {
+  const rawTotal = Number(delivery?.total_items || 0);
+  if (Number.isFinite(rawTotal) && rawTotal > 0) return Math.floor(rawTotal);
+
+  const items = Array.isArray(delivery?.delivery_items) ? delivery.delivery_items : [];
+  const summed = items.reduce((sum, item) => sum + (Number(item?.quantity || 1) > 0 ? Math.floor(Number(item.quantity)) : 1), 0);
+  return summed > 0 ? summed : 1;
+}
+
 function DetailBlock({ label, value, highlight = false }) {
   return (
     <div className={`rounded-2xl border p-4 shadow-sm transition-all duration-200 ${highlight ? 'border-lime-300 bg-lime-50/70' : 'border-slate-200 bg-white'} hover:-translate-y-0.5 hover:shadow-md`}>
@@ -306,7 +329,8 @@ export default function AdminDeliveryLogs() {
               <DetailBlock label="Date & Time" value={selectedDelivery?.date_received ? `${formatOptionalDate(selectedDelivery.date_received)} ${formatOptionalTime(selectedDelivery.date_received)}` : '—'} />
               <DetailBlock label="Reference Code" value={normalizeReferenceCode(selectedDelivery?.reference_code)} highlight />
               <DetailBlock label="Company" value={selectedDelivery?.company_name} />
-              <DetailBlock label="Delivery Type" value={selectedDelivery?.delivery_type} />
+              <DetailBlock label="Delivery Items" value={formatDeliveryItems(selectedDelivery)} />
+              <DetailBlock label="Total Items" value={String(getTotalItems(selectedDelivery))} highlight />
               <DetailBlock label="Deliverer" value={selectedDelivery?.deliverer_name} />
               <DetailBlock label="Courier/Supplier" value={selectedDelivery?.courier_type_name || selectedDelivery?.delivery_partner} />
               <DetailBlock label="Status" value={selectedDelivery?.is_status} highlight />

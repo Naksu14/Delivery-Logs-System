@@ -1,4 +1,16 @@
-import { IsOptional, IsString, IsIn, IsDateString, IsNumber } from 'class-validator';
+import {
+	IsOptional,
+	IsString,
+	IsIn,
+	IsDateString,
+	IsArray,
+	ArrayNotEmpty,
+	ValidateNested,
+	IsInt,
+	Min,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { DeliveryItemDto } from './create-delivery.dto';
 
 export class UpdateDeliveryDto {
 	@IsOptional()
@@ -19,8 +31,20 @@ export class UpdateDeliveryDto {
 	company_name?: string;
 
 	@IsOptional()
+	@IsArray()
+	@ArrayNotEmpty()
+	@ValidateNested({ each: true })
+	@Type(() => DeliveryItemDto)
+	delivery_items?: DeliveryItemDto[];
+
+	@IsOptional()
 	@IsString()
 	delivery_type?: string;
+
+	@IsOptional()
+	@IsInt()
+	@Min(1)
+	total_items?: number;
 
 	@IsOptional()
 	@IsString()

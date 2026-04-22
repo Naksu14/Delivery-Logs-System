@@ -70,10 +70,53 @@ export class DeliveriesService {
     return normalized === 'supplier' ? 'supplier' : 'courier';
   }
 
+  private normalizeDeliveryItems(
+    deliveryItems?: Array<{ name?: string; quantity?: number }> | null,
+    fallbackDeliveryType?: string,
+  ): { deliveryItems: Array<{ name: string; quantity: number }>; totalItems: number; summary: string } {
+    const normalizedItems = (Array.isArray(deliveryItems) ? deliveryItems : [])
+      .map((item) => ({
+        name: String(item?.name || '').trim(),
+        quantity: Number(item?.quantity || 1),
+      }))
+      .filter((item) => item.name.length > 0)
+      .map((item) => ({
+        name: item.name,
+        quantity: Number.isFinite(item.quantity) && item.quantity > 0 ? Math.floor(item.quantity) : 1,
+      }));
+
+    const fallbackName = String(fallbackDeliveryType || '').trim();
+    const withFallback =
+      normalizedItems.length > 0
+        ? normalizedItems
+        : fallbackName
+          ? [{ name: fallbackName, quantity: 1 }]
+          : [];
+
+    if (withFallback.length === 0) {
+      throw new BadRequestException('At least one delivery item is required');
+    }
+
+    const totalItems = withFallback.reduce((sum, item) => sum + item.quantity, 0);
+    const summary = withFallback.map((item) => `${item.name} (${item.quantity})`).join(', ').trim();
+
+    return {
+      deliveryItems: withFallback,
+      totalItems,
+      summary,
+    };
+  }
+
   async create(createDeliveryDto: CreateDeliveryDto): Promise<Delivery> {
     try {
       const normalizedDto = { ...createDeliveryDto };
-      normalizedDto.delivery_type = normalizedDto.delivery_type.toLowerCase().trim();
+      const deliveryItemState = this.normalizeDeliveryItems(
+        normalizedDto.delivery_items,
+        normalizedDto.delivery_type,
+      );
+      normalizedDto.delivery_items = deliveryItemState.deliveryItems;
+      normalizedDto.total_items = deliveryItemState.totalItems;
+      normalizedDto.delivery_type = deliveryItemState.summary;
       const deliveryPartnerType = this.normalizeDeliveryPartnerType(normalizedDto.delivery_partner);
 
       if (deliveryPartnerType === 'supplier') {
@@ -96,6 +139,8 @@ export class DeliveriesService {
 
       const deliveryPayload: Partial<Delivery> = {
         ...normalizedDto,
+        delivery_items: normalizedDto.delivery_items,
+        total_items: normalizedDto.total_items,
         date_received: new Date(normalizedDto.date_received),
         received_at: normalizedDto.received_at ? new Date(normalizedDto.received_at) : undefined,
         is_status: 'Pending',
@@ -136,7 +181,7 @@ export class DeliveriesService {
     }
 
     if (query?.type) {
-      qb.andWhere('d.delivery_type = :type', { type: query.type });
+      qb.andWhere('LOWER(d.delivery_type) LIKE :type', { type: `%${String(query.type).trim().toLowerCase()}%` });
     }
 
     const totalItems = await qb.getCount();
@@ -171,8 +216,14 @@ export class DeliveriesService {
     }
 
     const normalizedDto = { ...updateDeliveryDto };
-    if (normalizedDto.delivery_type) {
-      normalizedDto.delivery_type = normalizedDto.delivery_type.toLowerCase().trim();
+    if (normalizedDto.delivery_items || normalizedDto.delivery_type) {
+      const deliveryItemState = this.normalizeDeliveryItems(
+        normalizedDto.delivery_items,
+        normalizedDto.delivery_type || delivery.delivery_type,
+      );
+      normalizedDto.delivery_items = deliveryItemState.deliveryItems;
+      normalizedDto.total_items = deliveryItemState.totalItems;
+      normalizedDto.delivery_type = deliveryItemState.summary;
     }
     if (normalizedDto.delivery_partner) {
       const deliveryPartnerType = this.normalizeDeliveryPartnerType(normalizedDto.delivery_partner);

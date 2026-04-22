@@ -17,7 +17,7 @@ import {
   Typography
 } from '@mui/material'
 
-import { FaBoxOpen, FaBuilding, FaRegFileAlt, FaTruck, FaUser } from 'react-icons/fa'
+import { FaBoxOpen, FaBuilding, FaRegFileAlt, FaTrashAlt, FaTruck, FaUser } from 'react-icons/fa'
 import { IoArrowBack } from 'react-icons/io5'
 
 import { getCompanies } from '../../../services/companyAPIServices'
@@ -57,7 +57,7 @@ const initialForm = {
   companyId: '',
   companyNameManual: '',
   recipientName: '',
-  deliveryType: '',
+  deliveryItems: [],
   deliveryByType: '',
   deliveryPartner: '',
   courierTypeName: '',
@@ -71,6 +71,54 @@ const defaultDeliveryPartnerOptions = []
 const defaultDeliveryByTypeOptions = ['Courier', 'Supplier']
 const defaultDeliveryTypeOptions = ['Parcel', 'Mail', 'Other']
 const companySelectPlaceholder = 'Select company'
+
+function createDeliveryItem(name = '', quantity = 1) {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name,
+    customName: '',
+    quantity,
+  }
+}
+
+function normalizeQuantity(value) {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) return 1
+  return Math.floor(parsed)
+}
+
+function formatDeliveryItemsSummary(items = []) {
+  if (!Array.isArray(items) || items.length === 0) return ''
+  return items
+    .map((item) => ({
+      name: resolveDeliveryItemName(item),
+      quantity: normalizeQuantity(item?.quantity),
+    }))
+    .filter((item) => item.name)
+    .map((item) => `${item.name} (${item.quantity})`)
+    .join(', ')
+}
+
+function isOtherDeliveryType(name) {
+  return String(name || '').trim().toLowerCase() === 'other'
+}
+
+function resolveDeliveryItemName(item) {
+  const selectedName = String(item?.name || '').trim()
+  if (!selectedName) return ''
+  if (!isOtherDeliveryType(selectedName)) return selectedName
+  return String(item?.customName || '').trim()
+}
+
+function normalizeDeliveryItemsForPayload(items = []) {
+  return (Array.isArray(items) ? items : [])
+    .map((item) => ({
+      id: item?.id,
+      name: resolveDeliveryItemName(item),
+      quantity: normalizeQuantity(item?.quantity),
+    }))
+    .filter((item) => item.name)
+}
 
 function getCompanyLabel(company) {
   if (!company) return ''
@@ -302,16 +350,23 @@ export default function KioskForms() {
   }, [deliveryPartners])
 
   const deliveryTypeOptions = useMemo(() => {
-    const types = Array.from(
+    const apiTypes = Array.from(
       new Set(
         deliveryTypes
           .map((deliveryType) => formatNameLabel(deliveryType?.name))
           .filter(Boolean)
+          .filter((type) => !isOtherDeliveryType(type))
       )
     )
 
-    return types.length > 0 ? types : defaultDeliveryTypeOptions
+    const base = apiTypes.length > 0 ? apiTypes : defaultDeliveryTypeOptions.filter((type) => !isOtherDeliveryType(type))
+    return [...base, 'Other']
   }, [deliveryTypes])
+
+  const totalItems = useMemo(
+    () => normalizeDeliveryItemsForPayload(formData.deliveryItems).reduce((sum, item) => sum + item.quantity, 0),
+    [formData.deliveryItems]
+  )
 
   const hasFormChanges = useMemo(() => {
     return JSON.stringify(formData) !== JSON.stringify(initialForm)
@@ -329,10 +384,62 @@ export default function KioskForms() {
 
     return {
       ...formData,
+      deliveryItemsSummary: formatDeliveryItemsSummary(formData.deliveryItems),
+      totalItems,
       companyDisplayName,
       dateReceivedPretty: prettyDate(currentDateReceived)
     }
-  }, [formData, companies, currentDateReceived])
+  }, [formData, companies, currentDateReceived, totalItems])
+
+  const addDeliveryItem = () => {
+    setSubmitted(false)
+    setSubmitError('')
+    setFormData((prev) => ({
+      ...prev,
+      deliveryItems: [...(Array.isArray(prev.deliveryItems) ? prev.deliveryItems : []), createDeliveryItem('', 1)],
+    }))
+  }
+
+  const updateDeliveryItem = (itemId, field, value) => {
+    setSubmitted(false)
+    setSubmitError('')
+    setFormData((prev) => ({
+      ...prev,
+      deliveryItems: (Array.isArray(prev.deliveryItems) ? prev.deliveryItems : []).map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              [field]: field === 'quantity' ? normalizeQuantity(value) : value,
+              ...(field === 'name' && !isOtherDeliveryType(value) ? { customName: '' } : {}),
+            }
+          : item
+      ),
+    }))
+  }
+
+  const adjustDeliveryItemQuantity = (itemId, delta) => {
+    setSubmitted(false)
+    setSubmitError('')
+    setFormData((prev) => ({
+      ...prev,
+      deliveryItems: (Array.isArray(prev.deliveryItems) ? prev.deliveryItems : []).map((item) => {
+        if (item.id !== itemId) return item
+        return {
+          ...item,
+          quantity: Math.max(1, normalizeQuantity(item.quantity) + delta),
+        }
+      }),
+    }))
+  }
+
+  const removeDeliveryItem = (itemId) => {
+    setSubmitted(false)
+    setSubmitError('')
+    setFormData((prev) => ({
+      ...prev,
+      deliveryItems: (Array.isArray(prev.deliveryItems) ? prev.deliveryItems : []).filter((item) => item.id !== itemId),
+    }))
+  }
 
   const onChange = (event) => {
     const { name, value } = event.target
@@ -383,6 +490,36 @@ export default function KioskForms() {
 
   const openSummary = (event) => {
     event.preventDefault()
+
+    const preparedDeliveryItems = (Array.isArray(formData.deliveryItems) ? formData.deliveryItems : [])
+      .map((item) => ({
+        id: item?.id,
+        name: String(item?.name || '').trim(),
+        customName: String(item?.customName || '').trim(),
+        quantity: normalizeQuantity(item?.quantity),
+      }))
+
+    const hasMissingCustomOther = preparedDeliveryItems.some(
+      (item) => isOtherDeliveryType(item.name) && !item.customName
+    )
+
+    if (hasMissingCustomOther) {
+      setSubmitError('Please provide a custom delivery type for every item set to Other.')
+      return
+    }
+
+    const normalizedDeliveryItems = normalizeDeliveryItemsForPayload(preparedDeliveryItems)
+
+    if (normalizedDeliveryItems.length === 0) {
+      setSubmitError('Please add at least one delivery type item before submitting.')
+      return
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      deliveryItems: preparedDeliveryItems,
+    }))
+
     const activeElement = document.activeElement
     if (activeElement instanceof HTMLElement) {
       activeElement.blur()
@@ -401,6 +538,36 @@ export default function KioskForms() {
     const submittedAt = new Date()
 
     const selectedCompany = companies.find((company) => company.id === Number(formData.companyId))
+    const preparedDeliveryItems = (Array.isArray(formData.deliveryItems) ? formData.deliveryItems : [])
+      .map((item) => ({
+        id: item?.id,
+        name: String(item?.name || '').trim(),
+        customName: String(item?.customName || '').trim(),
+        quantity: normalizeQuantity(item?.quantity),
+      }))
+
+    const hasMissingCustomOther = preparedDeliveryItems.some(
+      (item) => isOtherDeliveryType(item.name) && !item.customName
+    )
+
+    if (hasMissingCustomOther) {
+      setSubmitError('Please provide a custom delivery type for every item set to Other.')
+      return
+    }
+
+    const normalizedDeliveryItems = normalizeDeliveryItemsForPayload(preparedDeliveryItems).map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+    }))
+
+    if (normalizedDeliveryItems.length === 0) {
+      setSubmitError('Please add at least one delivery type item before submitting.')
+      return
+    }
+
+    const deliveryTypeSummary = formatDeliveryItemsSummary(normalizedDeliveryItems)
+    const totalItemCount = normalizedDeliveryItems.reduce((sum, item) => sum + item.quantity, 0)
+
     const companyNameValue =
       formData.deliveryFor === 'Individual'
         ? formData.recipientName.trim()
@@ -415,7 +582,9 @@ export default function KioskForms() {
       delivery_for: formData.deliveryFor,
       recipient_name: formData.recipientName,
       company_name: companyNameValue,
-      delivery_type: formData.deliveryType,
+      delivery_type: deliveryTypeSummary,
+      delivery_items: normalizedDeliveryItems,
+      total_items: totalItemCount,
       delivery_partner: formData.deliveryByType === 'Supplier' ? 'Supplier' : formData.deliveryPartner,
       courier_type_name: formData.deliveryByType === 'Courier' ? formData.deliveryPartner : undefined,
       supplier_description: formData.deliveryByType === 'Supplier' ? formData.supplierDescription : undefined,
@@ -631,7 +800,7 @@ export default function KioskForms() {
                 )}
 
                 <div>
-                  <FieldLabel icon={FaUser} text="Receiver Name" required />
+                  <FieldLabel icon={FaUser} text="Receiver/Representative Name" required />
                   <TextField
                     fullWidth
                     name="recipientName"
@@ -675,32 +844,139 @@ export default function KioskForms() {
                     />
                 </div>
             <div>
-                <FieldLabel icon={FaBoxOpen} text="Delivery Type" required />
-                <FormControl fullWidth sx={fieldSx}>
-                  <Select
-                    name="deliveryType"
-                    value={formData.deliveryType}
-                    onChange={onChange}
-                    displayEmpty
-                    required
-                    disabled={isDeliveryTypesLoading}
-                  >
-                    <MenuItem value="" disabled>
-                      {isDeliveryTypesLoading ? 'Loading delivery types...' : 'Select delivery type'}
-                    </MenuItem>
-                    {deliveryTypeOptions.map((option) => (
-                      <MenuItem key={option} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                {isDeliveryTypesError && (
-                  <Typography sx={{ mt: 1, fontSize: '0.9rem', color: '#b45309' }}>
-                    Could not load delivery types. Using default options.
-                  </Typography>
-                )}
-              </div>
+              <FieldLabel icon={FaBoxOpen} text="Delivery Type" required />
+              <Box
+                sx={{
+                  p: 2.5,
+                  border: '1.5px solid #e0e0e0',
+                  borderRadius: '16px',
+                  backgroundColor: '#ffffff',
+                  transition: 'border-color 0.3s ease',
+                  '&:focus-within': { borderColor: COLORS.accentBrown }
+                }}
+              >
+                <Stack spacing={2}>
+                  {(Array.isArray(formData.deliveryItems) ? formData.deliveryItems : []).map((item, index) => (
+                    <Stack 
+                      key={item.id} 
+                      spacing={1.5}
+                      sx={{ 
+                        pb: index !== formData.deliveryItems.length - 1 ? 2 : 0,
+                        borderBottom: index !== formData.deliveryItems.length - 1 ? '1px solid #f0f0f0' : 'none'
+                      }}
+                    >
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+                        {/* Dropdown Selection */}
+                        <FormControl fullWidth sx={fieldSx}>
+                          <Select
+                            value={item.name || ''}
+                            onChange={(event) => updateDeliveryItem(item.id, 'name', event.target.value)}
+                            displayEmpty
+                            renderValue={(selected) => {
+                              if (!selected) return <span style={{ color: '#999' }}>Select type...</span>
+                              return selected
+                            }}
+                          >
+                            {deliveryTypeOptions.map((option) => (
+                              <MenuItem key={option} value={option}>{option}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+
+                        {/* Modern Quantity Stepper & Delete */}
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              height: 56,
+                              backgroundColor: '#f5f5f5',
+                              borderRadius: '12px',
+                              px: 1,
+                              border: '1px solid #e0e0e0'
+                            }}
+                          >
+                            <IconButton
+                              size="small"
+                              onClick={() => adjustDeliveryItemQuantity(item.id, -1)}
+                              sx={{ color: COLORS.primaryBrown }}
+                            >
+                              <Typography variant="h6" sx={{ lineHeight: 1 }}>-</Typography>
+                            </IconButton>
+
+                            <Typography sx={{ minWidth: 40, textAlign: 'center', fontWeight: 800, fontSize: '1.1rem' }}>
+                              {normalizeQuantity(item.quantity)}
+                            </Typography>
+
+                            <IconButton
+                              size="small"
+                              onClick={() => adjustDeliveryItemQuantity(item.id, 1)}
+                              sx={{ color: COLORS.primaryBrown }}
+                            >
+                              <Typography variant="h6" sx={{ lineHeight: 1 }}>+</Typography>
+                            </IconButton>
+                          </Box>
+
+                          <IconButton
+                            onClick={() => removeDeliveryItem(item.id)}
+                            sx={{
+                              height: 56,
+                              width: 56,
+                              borderRadius: '12px',
+                              color: '#ff4444',
+                              backgroundColor: 'rgba(255, 68, 68, 0.05)',
+                              '&:hover': { backgroundColor: 'rgba(255, 68, 68, 0.1)' }
+                            }}
+                          >
+                            <FaTrashAlt size={18} />
+                          </IconButton>
+                        </Stack>
+                      </Stack>
+
+                      {isOtherDeliveryType(item.name) ? (
+                        <TextField
+                          fullWidth
+                          value={item.customName || ''}
+                          onChange={(event) => updateDeliveryItem(item.id, 'customName', event.target.value)}
+                          placeholder="Type custom delivery type"
+                          required
+                          sx={fieldSx}
+                        />
+                      ) : null}
+                    </Stack>
+                  ))}
+
+                  {/* Add Button & Footer */}
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+                    <Button
+                      type="button"
+                      onClick={addDeliveryItem}
+                      startIcon={<span>+</span>}
+                      sx={{
+                        color: COLORS.primaryBrown,
+                        fontWeight: 700,
+                        textTransform: 'none',
+                        fontSize: '0.95rem',
+                        '&:hover': { backgroundColor: 'transparent', color: '#888' }
+                      }}
+                    >
+                      Add another type
+                    </Button>
+
+                    <Box sx={{ px: 2, py: 0.5, borderRadius: '8px', backgroundColor: '#fdfdf1', border: '1px solid #e4eb9f' }}>
+                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 800, color: '#3f3f00' }}>
+                        TOTAL ITEMS: {totalItems}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </Stack>
+              </Box>
+              {isDeliveryTypesError && (
+                <Typography sx={{ mt: 1, fontSize: '0.85rem', color: '#b45309' }}>
+                  Could not load delivery types.
+                </Typography>
+              )}
+            </div>
               <div className="hidden xl:block" aria-hidden="true" />
             </div>
             </Box>

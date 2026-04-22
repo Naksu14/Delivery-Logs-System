@@ -57,6 +57,8 @@ export default function DeliverySummaryModal({ open, onClose, onConfirm, summary
   const deliveredByValue = isSupplier
     ? 'Supplier'
     : summaryData?.deliveryPartner || deliveryByType || '—'
+  const deliveryItemsSummary = summaryData?.deliveryItemsSummary || '—'
+  const totalItems = Number(summaryData?.totalItems || 0) || 0
 
   return (
     <Dialog
@@ -167,7 +169,13 @@ export default function DeliverySummaryModal({ open, onClose, onConfirm, summary
           {/* Delivery Type */}
           <Card sx={{ border: 'none', background: '#f9f9f9', boxShadow: 'none', borderRadius: '12px' }}>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <SummaryRow label="Delivery Type" value={summaryData.deliveryType} />
+              <SummaryRow label="Delivery Items" value={deliveryItemsSummary} />
+            </CardContent>
+          </Card>
+
+          <Card sx={{ border: 'none', background: '#f9f9f9', boxShadow: 'none', borderRadius: '12px' }}>
+            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+              <SummaryRow label="Total Items" value={String(totalItems)} />
             </CardContent>
           </Card>
 

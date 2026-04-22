@@ -7,6 +7,29 @@ const SKELETON_ROWS = 8;
 const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) => {
   const [showReferenceCodes, setShowReferenceCodes] = useState(false);
 
+  const getDeliveryItemsSummary = (delivery) => {
+    const items = Array.isArray(delivery?.delivery_items)
+      ? delivery.delivery_items
+          .map((item) => ({
+            name: String(item?.name || '').trim(),
+            quantity: Number(item?.quantity || 1),
+          }))
+          .filter((item) => item.name)
+      : [];
+
+    if (!items.length) return delivery?.delivery_type || '—';
+    return items.map((item) => `${item.name} (${item.quantity > 0 ? Math.floor(item.quantity) : 1})`).join(', ');
+  };
+
+  const getTotalItems = (delivery) => {
+    const rawTotal = Number(delivery?.total_items || 0);
+    if (Number.isFinite(rawTotal) && rawTotal > 0) return Math.floor(rawTotal);
+
+    const items = Array.isArray(delivery?.delivery_items) ? delivery.delivery_items : [];
+    const summed = items.reduce((sum, item) => sum + (Number(item?.quantity || 1) > 0 ? Math.floor(Number(item.quantity)) : 1), 0);
+    return summed > 0 ? summed : 1;
+  };
+
   const getStatusBadgeClass = (status) => {
     switch (status) {
       case 'Pending':
@@ -67,6 +90,7 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
             <th>Company</th>
             <th>Recipient Name</th>
             <th>Delivery Type</th>
+            <th>Total Items</th>
             <th>Deliverer</th>
             <th>Courier/Supplier</th>
             <th>Description</th>
@@ -80,6 +104,7 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
           {isLoading
             ? Array.from({ length: SKELETON_ROWS }).map((_, index) => (
                 <tr key={`skeleton-${index}`} className="delivery-logs-table__skeleton-row" aria-hidden="true">
+                  <td><span className="delivery-logs-table__skeleton" /></td>
                   <td><span className="delivery-logs-table__skeleton" /></td>
                   <td><span className="delivery-logs-table__skeleton" /></td>
                   <td><span className="delivery-logs-table__skeleton" /></td>
@@ -106,7 +131,8 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
               <td>{showReferenceCodes ? delivery.reference_code || '—' : maskReferenceCode(delivery.reference_code)}</td>
               <td>{delivery.company_name || '—'}</td>
               <td>{delivery.recipient_name || '—'}</td>
-              <td>{delivery.delivery_type || '—'}</td>
+              <td>{getDeliveryItemsSummary(delivery)}</td>
+              <td>{getTotalItems(delivery)}</td>
               <td>{delivery.deliverer_name || '—'}</td>
               <td>{delivery.courier_type_name || delivery.delivery_partner || '—'}</td>
               <td>{delivery.description || '—'}</td>
@@ -166,7 +192,7 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
           ))
           ) : (
             <tr>
-              <td colSpan={12} className="delivery-logs-table__empty">No delivery records found.</td>
+              <td colSpan={13} className="delivery-logs-table__empty">No delivery records found.</td>
             </tr>
           )}
         </tbody>
