@@ -11,8 +11,16 @@ import { UpsertCompanyDeliverySpreadsheetDto } from './dto/upsert-company-delive
 
 type SpreadsheetTarget = {
   spreadsheetId: string | null;
+  sheetTabName: string | null;
   source: 'company' | 'global' | 'env';
 };
+
+const DEFAULT_HEADERS = [
+  'Sender / Source',
+  'Description / Courier',
+  'Received By (Name)',
+  'Date Received',
+];
 
 @Injectable()
 export class DeliverySpreadsheetService {
@@ -52,6 +60,33 @@ export class DeliverySpreadsheetService {
     return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=0`;
   }
 
+  private buildStoredSpreadsheetUrl(input: string | null | undefined, spreadsheetId: string): string {
+    const raw = (input || '').trim();
+    if (/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[a-zA-Z0-9_-]+/i.test(raw)) {
+      return raw;
+    }
+
+    return this.formatSpreadsheetUrl(spreadsheetId);
+  }
+
+  private formatSpreadsheetUrlWithGid(spreadsheetId: string, gid: number): string {
+    return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${gid}`;
+  }
+
+  private sanitizeSheetTabName(value?: string | null): string | null {
+    const raw = (value || '').trim();
+    if (!raw) {
+      return null;
+    }
+
+    const cleaned = raw.replace(/[\\/?*\[\]:]/g, '').trim();
+    if (!cleaned) {
+      return null;
+    }
+
+    return cleaned.slice(0, 100);
+  }
+
   private formatDeliveryItems(delivery: Delivery): string {
     const items = Array.isArray(delivery.delivery_items)
       ? delivery.delivery_items
@@ -69,6 +104,23 @@ export class DeliverySpreadsheetService {
     return items.map((item) => `${item.name} (${item.quantity > 0 ? item.quantity : 1})`).join(', ');
   }
 
+  private formatDateForSheet(value?: Date | string | null): string {
+    if (!value) {
+      return '';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(date);
+  }
+
   private async getOrCreateSettings(): Promise<DeliverySpreadsheetSetting> {
     let settings = await this.settingRepo.findOne({ where: { id: 1 } });
     if (!settings) {
@@ -77,6 +129,7 @@ export class DeliverySpreadsheetService {
         fallback_to_global: true,
         global_spreadsheet_id: null,
         global_spreadsheet_url: null,
+        global_sheet_tab_name: null,
       });
       settings = await this.settingRepo.save(settings);
     }
@@ -85,20 +138,19 @@ export class DeliverySpreadsheetService {
   }
 
   private buildRow(delivery: Delivery): string[] {
-    const deliveryTypeSummary = this.formatDeliveryItems(delivery);
-    return [
-      new Date(delivery.date_received || delivery.created_at || new Date()).toISOString(),
-      delivery.company_name || '',
-      delivery.recipient_name || '',
-      deliveryTypeSummary,
-      delivery.deliverer_name || '',
+    const descriptionAndCourier = [
+      delivery.description || delivery.supplier_description || this.formatDeliveryItems(delivery),
       delivery.courier_type_name || delivery.delivery_partner || '',
-      delivery.description || delivery.supplier_description || '',
-      delivery.received_by || '',
-      delivery.received_at ? new Date(delivery.received_at).toISOString() : '',
-      delivery.is_status || 'Pending',
-      delivery.receiver_signature || '',
-      delivery.reference_code || '',
+    ]
+      .map((value) => String(value || '').trim())
+      .filter((value) => value.length > 0)
+      .join(' / ');
+
+    return [
+      delivery.deliverer_name || '',
+      descriptionAndCourier,
+      delivery.recipient_name || '',
+      this.formatDateForSheet(delivery.date_received || delivery.created_at || new Date()),
     ];
   }
 
@@ -120,6 +172,57 @@ export class DeliverySpreadsheetService {
     return google.sheets({ version: 'v4', auth });
   }
 
+  private async resolveSheetGid(spreadsheetId: string, sheetTabName?: string | null): Promise<number | null> {
+    const normalizedTab = this.sanitizeSheetTabName(sheetTabName);
+    if (!normalizedTab || !this.hasServiceAccountCredentials()) {
+      return null;
+    }
+
+    try {
+      const sheetsClient = await this.getGoogleSheetsClient();
+      const response = await sheetsClient.spreadsheets.get({
+        spreadsheetId,
+        fields: 'sheets(properties(sheetId,title))',
+      });
+
+      const sheets = Array.isArray(response.data?.sheets) ? response.data.sheets : [];
+      const matched = sheets.find(
+        (sheet) =>
+          String(sheet?.properties?.title || '').trim().toLowerCase() === normalizedTab.toLowerCase(),
+      );
+
+      const sheetId = matched?.properties?.sheetId;
+      return typeof sheetId === 'number' ? sheetId : null;
+    } catch (error) {
+      this.logger.warn(
+        `Unable to resolve gid for spreadsheet ${spreadsheetId} tab ${normalizedTab}: ${String(error)}`,
+      );
+      return null;
+    }
+  }
+
+  private async buildSpreadsheetViewUrl(
+    spreadsheetId?: string | null,
+    sheetTabName?: string | null,
+    fallbackUrl?: string | null,
+  ): Promise<string | null> {
+    if (!spreadsheetId) {
+      return null;
+    }
+
+    const gid = await this.resolveSheetGid(spreadsheetId, sheetTabName);
+    if (gid !== null) {
+      return this.formatSpreadsheetUrlWithGid(spreadsheetId, gid);
+    }
+
+    const fallback = (fallbackUrl || '').trim();
+    if (fallback) {
+      return fallback;
+    }
+
+    return this.formatSpreadsheetUrl(spreadsheetId);
+  }
+
   private hasServiceAccountCredentials(): boolean {
     const serviceAccountEmail = this.configService.get<string>('GOOGLE_SERVICE_ACCOUNT_EMAIL') || '';
     const serviceAccountPrivateKey = this.configService.get<string>('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY') || '';
@@ -135,6 +238,75 @@ export class DeliverySpreadsheetService {
     return this.parseSpreadsheetId(this.configService.get<string>('GOOGLE_SHEETS_SPREADSHEET_URL') || '');
   }
 
+  private async validateSpreadsheetAccessOrThrow(
+    spreadsheetId: string,
+    sheetTabName: string | null,
+    contextLabel: string,
+  ): Promise<void> {
+    const webAppUrl = (this.configService.get<string>('GOOGLE_SHEETS_WEBAPP_URL') || '').trim();
+
+    if (webAppUrl) {
+      const payload = {
+        action: 'validateSpreadsheetAccess',
+        spreadsheetId,
+        sheetTabName: sheetTabName || '',
+        sheetName: sheetTabName || '',
+      };
+
+      const response = await fetch(webAppUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const bodyText = await response.text();
+      if (!response.ok) {
+        throw new BadRequestException(
+          `${contextLabel} is not accessible by Apps Script web app (status ${response.status}). Details: ${bodyText.slice(0, 300)}`,
+        );
+      }
+
+      try {
+        const parsed = JSON.parse(bodyText);
+        if (!parsed || parsed.status === 'error' || parsed.success === false) {
+          throw new BadRequestException(
+            `${contextLabel} validation failed via Apps Script: ${parsed?.message || 'unknown error'}`,
+          );
+        }
+      } catch (parseError) {
+        if (parseError instanceof BadRequestException) {
+          throw parseError;
+        }
+        throw new BadRequestException(
+          `${contextLabel} validation returned an unreadable response from Apps Script.`,
+        );
+      }
+
+      return;
+    }
+
+    if (this.hasServiceAccountCredentials()) {
+      try {
+        const sheetsClient = await this.getGoogleSheetsClient();
+        await sheetsClient.spreadsheets.get({
+          spreadsheetId,
+          fields: 'spreadsheetId',
+        });
+        return;
+      } catch (error) {
+        throw new BadRequestException(
+          `${contextLabel} is not accessible by Google service account: ${String(error)}`,
+        );
+      }
+    }
+
+    this.logger.warn(
+      `Skipping spreadsheet accessibility validation for ${contextLabel} because neither GOOGLE_SHEETS_WEBAPP_URL nor service account credentials are configured.`,
+    );
+  }
+
   private async appendViaWebApp(
     delivery: Delivery,
     target: SpreadsheetTarget | null,
@@ -148,21 +320,22 @@ export class DeliverySpreadsheetService {
 
     const spreadsheetId = target?.spreadsheetId || '';
     const source = target?.source || 'env';
-    const dateTime = row[0] || '';
-    const company = row[1] || '';
+    const deliverer = row[0] || '';
+    const descriptionAndCourier = row[1] || '';
     const receiverName = row[2] || '';
-    const deliveryType = row[3] || '';
-    const totalItems = String(Number(delivery.total_items || 0) || 1);
-    const deliverer = row[4] || '';
-    const courierSupplier = row[5] || '';
-    const description = row[6] || '';
-    const receivedBy = row[7] || '';
-    const receivedAt = row[8] || '';
-    const status = row[9] || '';
-    const signature = row[10] || '';
-    const referenceCode = row[11] || '';
+    const dateReceived = row[3] || '';
+    const company = delivery.company_name || '';
+    const courierSupplier = delivery.courier_type_name || delivery.delivery_partner || '';
+    const description = delivery.description || delivery.supplier_description || '';
+    const referenceCode = delivery.reference_code || '';
+    const dateTime = delivery.date_received
+      ? new Date(delivery.date_received).toISOString()
+      : delivery.created_at
+        ? new Date(delivery.created_at).toISOString()
+        : '';
 
-    const sheetTabName = (this.configService.get<string>('GOOGLE_SHEETS_TAB_NAME') || 'Sheet1').trim() || 'Sheet1';
+    const envSheetTabName = (this.configService.get<string>('GOOGLE_SHEETS_TAB_NAME') || '').trim();
+    const sheetTabName = target?.sheetTabName || envSheetTabName || 'Sheet1';
 
     const payload = {
       action,
@@ -170,34 +343,16 @@ export class DeliverySpreadsheetService {
       source,
       sheetTabName,
       sheetName: sheetTabName,
-      headers: [
-        'Date & Time',
-        'Company',
-        'Receiver Name',
-        'Delivery Type',
-        'Deliverer',
-        'Courier/Supplier',
-        'Description',
-        'Received by',
-        'Received at',
-        'Status',
-        'Signature',
-        'Reference Code',
-      ],
+      headers: DEFAULT_HEADERS,
       row,
       rowData: {
         date_time: dateTime,
         company,
         receiver_name: receiverName,
-        delivery_type: deliveryType,
-        total_items: totalItems,
         deliverer,
         courier_supplier: courierSupplier,
         description,
-        received_by: receivedBy,
-        received_at: receivedAt,
-        status,
-        signature,
+        date_received: dateReceived,
         reference_code: referenceCode,
       },
       delivery: {
@@ -228,14 +383,10 @@ export class DeliverySpreadsheetService {
       dateTime,
       company,
       receiverName,
-      deliveryType,
       deliverer,
       courierSupplier,
       description,
-      receivedBy,
-      receivedAt,
-      status,
-      signature,
+      dateReceived,
       referenceCode,
       row: JSON.stringify(row),
       payload: JSON.stringify(payload),
@@ -304,7 +455,12 @@ export class DeliverySpreadsheetService {
       if (!target.spreadsheetId) {
         return;
       }
-      if (targets.some((item) => item.spreadsheetId === target.spreadsheetId)) {
+      if (
+        targets.some(
+          (item) =>
+            item.spreadsheetId === target.spreadsheetId && item.sheetTabName === target.sheetTabName,
+        )
+      ) {
         return;
       }
       targets.push(target);
@@ -316,18 +472,27 @@ export class DeliverySpreadsheetService {
       });
 
       if (companyMapping?.spreadsheet_id) {
-        addTarget({ spreadsheetId: companyMapping.spreadsheet_id, source: 'company' });
+        addTarget({
+          spreadsheetId: companyMapping.spreadsheet_id,
+          sheetTabName: this.sanitizeSheetTabName(companyMapping.sheet_tab_name),
+          source: 'company',
+        });
       }
     }
 
     // Always sync to global sheet when configured so all companies are centralized there.
     if (settings.global_spreadsheet_id) {
-      addTarget({ spreadsheetId: settings.global_spreadsheet_id, source: 'global' });
+      addTarget({
+        spreadsheetId: settings.global_spreadsheet_id,
+        sheetTabName: this.sanitizeSheetTabName(settings.global_sheet_tab_name),
+        source: 'global',
+      });
     }
 
     const envSpreadsheetId = this.getEnvFallbackSpreadsheetId();
+    const envSheetTabName = this.sanitizeSheetTabName(this.configService.get<string>('GOOGLE_SHEETS_TAB_NAME') || '');
     if (targets.length === 0 && settings.fallback_to_global && envSpreadsheetId) {
-      addTarget({ spreadsheetId: envSpreadsheetId, source: 'env' });
+      addTarget({ spreadsheetId: envSpreadsheetId, sheetTabName: envSheetTabName, source: 'env' });
     }
 
     return targets;
@@ -335,22 +500,51 @@ export class DeliverySpreadsheetService {
 
   async getSpreadsheetSettings() {
     const settings = await this.getOrCreateSettings();
-    const companyMappings = await this.companySpreadsheetRepo.find({ order: { company_name: 'ASC' } });
+    const companyMappingsRaw = await this.companySpreadsheetRepo.find({ order: { company_name: 'ASC' } });
+    const companyMappings = await Promise.all(
+      companyMappingsRaw.map(async (mapping) => ({
+        ...mapping,
+        spreadsheet_view_url: await this.buildSpreadsheetViewUrl(
+          mapping.spreadsheet_id,
+          mapping.sheet_tab_name,
+          mapping.spreadsheet_url,
+        ),
+      })),
+    );
+    const globalSpreadsheetViewUrl = await this.buildSpreadsheetViewUrl(
+      settings.global_spreadsheet_id,
+      settings.global_sheet_tab_name,
+      settings.global_spreadsheet_url,
+    );
 
     return {
       global_spreadsheet_url: settings.global_spreadsheet_url || null,
+      global_spreadsheet_view_url: globalSpreadsheetViewUrl,
       global_spreadsheet_id: settings.global_spreadsheet_id || null,
+      global_sheet_tab_name: settings.global_sheet_tab_name || null,
       fallback_to_global: settings.fallback_to_global,
       company_mappings: companyMappings,
     };
   }
 
   async getCompanySpreadsheetMappings() {
-    return this.companySpreadsheetRepo.find({ order: { company_name: 'ASC' } });
+    const mappings = await this.companySpreadsheetRepo.find({ order: { company_name: 'ASC' } });
+    return Promise.all(
+      mappings.map(async (mapping) => ({
+        ...mapping,
+        spreadsheet_view_url: await this.buildSpreadsheetViewUrl(
+          mapping.spreadsheet_id,
+          mapping.sheet_tab_name,
+          mapping.spreadsheet_url,
+        ),
+      })),
+    );
   }
 
   async updateSpreadsheetSettings(dto: UpdateDeliverySpreadsheetSettingsDto) {
     const settings = await this.getOrCreateSettings();
+    let nextGlobalSpreadsheetId = settings.global_spreadsheet_id || null;
+    let nextGlobalSheetTabName = this.sanitizeSheetTabName(settings.global_sheet_tab_name);
 
     if (dto.global_spreadsheet !== undefined) {
       const spreadsheetId = this.parseSpreadsheetId(dto.global_spreadsheet);
@@ -359,11 +553,28 @@ export class DeliverySpreadsheetService {
       }
 
       settings.global_spreadsheet_id = spreadsheetId;
-      settings.global_spreadsheet_url = this.formatSpreadsheetUrl(spreadsheetId);
+      settings.global_spreadsheet_url = this.buildStoredSpreadsheetUrl(dto.global_spreadsheet, spreadsheetId);
+      nextGlobalSpreadsheetId = spreadsheetId;
     }
 
     if (dto.fallback_to_global !== undefined) {
       settings.fallback_to_global = dto.fallback_to_global;
+    }
+
+    if (dto.global_sheet_tab_name !== undefined) {
+      settings.global_sheet_tab_name = this.sanitizeSheetTabName(dto.global_sheet_tab_name);
+      nextGlobalSheetTabName = this.sanitizeSheetTabName(dto.global_sheet_tab_name);
+    }
+
+    if (
+      nextGlobalSpreadsheetId &&
+      (dto.global_spreadsheet !== undefined || dto.global_sheet_tab_name !== undefined)
+    ) {
+      await this.validateSpreadsheetAccessOrThrow(
+        nextGlobalSpreadsheetId,
+        nextGlobalSheetTabName,
+        'Global spreadsheet',
+      );
     }
 
     await this.settingRepo.save(settings);
@@ -383,6 +594,13 @@ export class DeliverySpreadsheetService {
       throw new BadRequestException('Invalid company spreadsheet link or ID');
     }
 
+    const sanitizedSheetTabName = this.sanitizeSheetTabName(dto.sheet_tab_name);
+    await this.validateSpreadsheetAccessOrThrow(
+      spreadsheetId,
+      sanitizedSheetTabName,
+      `Spreadsheet for company ${companyName}`,
+    );
+
     let mapping = await this.companySpreadsheetRepo.findOne({ where: { company_name_key: companyNameKey } });
     if (!mapping) {
       mapping = this.companySpreadsheetRepo.create({
@@ -395,7 +613,8 @@ export class DeliverySpreadsheetService {
     mapping.company_name = companyName;
     mapping.company_name_key = companyNameKey;
     mapping.spreadsheet_id = spreadsheetId;
-    mapping.spreadsheet_url = this.formatSpreadsheetUrl(spreadsheetId);
+    mapping.spreadsheet_url = this.buildStoredSpreadsheetUrl(dto.spreadsheet, spreadsheetId);
+    mapping.sheet_tab_name = sanitizedSheetTabName;
 
     const saved = await this.companySpreadsheetRepo.save(mapping);
     return saved;
@@ -447,9 +666,13 @@ export class DeliverySpreadsheetService {
             continue;
           }
 
+          const targetRange = target.sheetTabName
+            ? `'${target.sheetTabName.replace(/'/g, "''")}'!A:D`
+            : 'A:D';
+
           await sheetsClient.spreadsheets.values.append({
             spreadsheetId: target.spreadsheetId,
-            range: 'A:L',
+            range: targetRange,
             valueInputOption: 'USER_ENTERED',
             insertDataOption: 'INSERT_ROWS',
             requestBody: {
@@ -458,7 +681,7 @@ export class DeliverySpreadsheetService {
           });
 
           this.logger.log(
-            `Delivery ${delivery.id} appended to Google Sheets (${target.source}) spreadsheet ${target.spreadsheetId}`,
+            `Delivery ${delivery.id} appended to Google Sheets (${target.source}) spreadsheet ${target.spreadsheetId} tab ${target.sheetTabName || 'default'}`,
           );
         }
         return;

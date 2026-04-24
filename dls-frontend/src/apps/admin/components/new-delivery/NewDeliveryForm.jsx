@@ -7,6 +7,7 @@ import { getDeliveryPartners } from '../../../../services/deliveryPartnersServic
 import { getDeliveryTypes } from '../../../../services/deliveryTypeServices';
 
 const defaultDeliveryTypes = ['Parcel', 'Mail', 'Other'];
+const defaultDeliveryByTypes = ['Courier', 'Supplier'];
 
 const initialForm = {
   delivery_for: 'Company',
@@ -15,7 +16,9 @@ const initialForm = {
   recipient_name: '',
   deliverer_name: '',
   delivery_items: [],
+  delivery_by: '',
   delivery_partner: '',
+  supplier_description: '',
   description: ''
 };
 
@@ -239,6 +242,16 @@ export default function NewDeliveryForm() {
       return;
     }
 
+    if (name === 'delivery_by') {
+      setForm((prev) => ({
+        ...prev,
+        delivery_by: value,
+        delivery_partner: '',
+        supplier_description: ''
+      }));
+      return;
+    }
+
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -285,6 +298,21 @@ export default function NewDeliveryForm() {
       return;
     }
 
+    if (!form.delivery_by) {
+      setSubmitError('Please select Delivery By (Courier or Supplier).');
+      return;
+    }
+
+    if (form.delivery_by === 'Courier' && !form.delivery_partner) {
+      setSubmitError('Please select a courier partner.');
+      return;
+    }
+
+    if (form.delivery_by === 'Supplier' && !form.supplier_description.trim()) {
+      setSubmitError('Please enter supplier description.');
+      return;
+    }
+
     const deliveryTypeSummary = formatDeliveryItemsSummary(preparedDeliveryItems);
     const totalItemCount = normalizedDeliveryItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -296,7 +324,10 @@ export default function NewDeliveryForm() {
       delivery_type: deliveryTypeSummary,
       delivery_items: normalizedDeliveryItems,
       total_items: totalItemCount,
-      delivery_partner: form.delivery_partner,
+      delivery_partner: form.delivery_by === 'Supplier' ? 'Supplier' : form.delivery_partner,
+      courier_type_name: form.delivery_by === 'Courier' ? form.delivery_partner : undefined,
+      supplier_description:
+        form.delivery_by === 'Supplier' ? form.supplier_description.trim() : undefined,
       deliverer_name: form.deliverer_name,
       description: form.description,
       is_status: 'Pending',
@@ -470,30 +501,64 @@ export default function NewDeliveryForm() {
           </div>
         </Field>
 
-        <Field label="Courier Partner" required>
+        <Field label="Delivery By" required>
           <select
             className={inputClass}
-            name="delivery_partner"
-            value={form.delivery_partner}
+            name="delivery_by"
+            value={form.delivery_by}
             onChange={onChange}
             required
-            disabled={isPartnersLoading || courierPartners.length === 0}
           >
             <option value="" disabled>
-              {isPartnersLoading ? 'Loading courier partners...' : 'Select courier partner'}
+              Select delivery by
             </option>
-            {courierPartners.map((partner) => (
-              <option key={partner.id} value={partner.name}>
-                {partner.name}
+            {defaultDeliveryByTypes.map((option) => (
+              <option key={option} value={option}>
+                {option}
               </option>
             ))}
           </select>
-          {!isPartnersLoading && courierPartners.length === 0 ? (
-            <p className="mt-2 text-xs font-semibold text-amber-700">
-              Add a courier partner first. Supplier records are not allowed here.
-            </p>
-          ) : null}
         </Field>
+
+        {form.delivery_by === 'Courier' ? (
+          <Field label="Courier Partner" required>
+            <select
+              className={inputClass}
+              name="delivery_partner"
+              value={form.delivery_partner}
+              onChange={onChange}
+              required
+              disabled={isPartnersLoading || courierPartners.length === 0}
+            >
+              <option value="" disabled>
+                {isPartnersLoading ? 'Loading courier partners...' : 'Select courier partner'}
+              </option>
+              {courierPartners.map((partner) => (
+                <option key={partner.id} value={partner.name}>
+                  {partner.name}
+                </option>
+              ))}
+            </select>
+            {!isPartnersLoading && courierPartners.length === 0 ? (
+              <p className="mt-2 text-xs font-semibold text-amber-700">
+                No courier partners available. Please add one first.
+              </p>
+            ) : null}
+          </Field>
+        ) : null}
+
+        {form.delivery_by === 'Supplier' ? (
+          <Field label="Supplier Description" required>
+            <input
+              className={inputClass}
+              name="supplier_description"
+              value={form.supplier_description}
+              onChange={onChange}
+              required
+              placeholder="Enter supplier information"
+            />
+          </Field>
+        ) : null}
       </section>
 
       <section className="admin-panel p-4">

@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString, Matches } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 
 export class UpdateDeliverySpreadsheetSettingsDto {
   @IsOptional()
@@ -11,4 +11,9 @@ export class UpdateDeliverySpreadsheetSettingsDto {
   @IsOptional()
   @IsBoolean()
   fallback_to_global?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  global_sheet_tab_name?: string;
 }

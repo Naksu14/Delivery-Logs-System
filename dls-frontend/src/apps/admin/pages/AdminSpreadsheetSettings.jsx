@@ -33,9 +33,19 @@ function extractApiMessage(error, fallback) {
 export default function AdminSpreadsheetSettings() {
   const queryClient = useQueryClient()
   const [globalSpreadsheet, setGlobalSpreadsheet] = useState('')
+  const [globalSheetTabName, setGlobalSheetTabName] = useState('')
   const [fallbackToGlobal, setFallbackToGlobal] = useState(true)
+  const [isGlobalEditOpen, setIsGlobalEditOpen] = useState(false)
+  const [globalEditSpreadsheet, setGlobalEditSpreadsheet] = useState('')
+  const [globalEditSheetTabName, setGlobalEditSheetTabName] = useState('')
+  const [globalEditFallback, setGlobalEditFallback] = useState(true)
   const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [companySpreadsheet, setCompanySpreadsheet] = useState('')
+  const [companySheetTabName, setCompanySheetTabName] = useState('')
+  const [isCompanyEditOpen, setIsCompanyEditOpen] = useState(false)
+  const [editingMapping, setEditingMapping] = useState(null)
+  const [editCompanySpreadsheet, setEditCompanySpreadsheet] = useState('')
+  const [editCompanySheetTabName, setEditCompanySheetTabName] = useState('')
   const [saveMessage, setSaveMessage] = useState('')
   const [saveError, setSaveError] = useState('')
 
@@ -44,6 +54,7 @@ export default function AdminSpreadsheetSettings() {
     queryFn: getDeliverySpreadsheetSettings,
     onSuccess: (payload) => {
       setGlobalSpreadsheet(payload?.global_spreadsheet_url || '')
+      setGlobalSheetTabName(payload?.global_sheet_tab_name || '')
       setFallbackToGlobal(Boolean(payload?.fallback_to_global))
     },
   })
@@ -76,6 +87,7 @@ export default function AdminSpreadsheetSettings() {
       setSaveError('')
       setSelectedCompanyId('')
       setCompanySpreadsheet('')
+      setCompanySheetTabName('')
       queryClient.invalidateQueries({ queryKey: ['delivery-spreadsheet-settings'] })
     },
     onError: (error) => {
@@ -106,8 +118,44 @@ export default function AdminSpreadsheetSettings() {
 
     updateGlobalMutation.mutate({
       global_spreadsheet: globalSpreadsheet,
+      global_sheet_tab_name: globalSheetTabName.trim() || undefined,
       fallback_to_global: fallbackToGlobal,
     })
+  }
+
+  const openGlobalEditModal = () => {
+    setSaveMessage('')
+    setSaveError('')
+    setGlobalEditSpreadsheet(settings?.global_spreadsheet_url || globalSpreadsheet || '')
+    setGlobalEditSheetTabName(settings?.global_sheet_tab_name || globalSheetTabName || '')
+    setGlobalEditFallback(Boolean(settings?.fallback_to_global ?? fallbackToGlobal))
+    setIsGlobalEditOpen(true)
+  }
+
+  const saveGlobalFromModal = () => {
+    setSaveMessage('')
+    setSaveError('')
+
+    if (!globalEditSpreadsheet.trim()) {
+      setSaveError('Please provide a global spreadsheet URL or spreadsheet ID.')
+      return
+    }
+
+    updateGlobalMutation.mutate(
+      {
+        global_spreadsheet: globalEditSpreadsheet.trim(),
+        global_sheet_tab_name: globalEditSheetTabName.trim() || undefined,
+        fallback_to_global: globalEditFallback,
+      },
+      {
+        onSuccess: () => {
+          setGlobalSpreadsheet(globalEditSpreadsheet.trim())
+          setGlobalSheetTabName(globalEditSheetTabName.trim())
+          setFallbackToGlobal(globalEditFallback)
+          setIsGlobalEditOpen(false)
+        },
+      }
+    )
   }
 
   const saveCompanyMapping = () => {
@@ -129,7 +177,64 @@ export default function AdminSpreadsheetSettings() {
       company_id: Number(company.id),
       company_name: company.company_name,
       spreadsheet: companySpreadsheet.trim(),
+      sheet_tab_name: companySheetTabName.trim() || undefined,
     })
+  }
+
+  const openCompanyEditModal = (mapping) => {
+    setSaveMessage('')
+    setSaveError('')
+    setEditingMapping(mapping)
+    setEditCompanySpreadsheet(mapping?.spreadsheet_url || mapping?.spreadsheet_id || '')
+    setEditCompanySheetTabName(mapping?.sheet_tab_name || '')
+    setIsCompanyEditOpen(true)
+  }
+
+  const saveCompanyMappingFromModal = () => {
+    setSaveMessage('')
+    setSaveError('')
+
+    if (!editingMapping) {
+      setSaveError('No company mapping selected to edit.')
+      return
+    }
+
+    if (!editCompanySpreadsheet.trim()) {
+      setSaveError('Please provide a company spreadsheet URL or spreadsheet ID.')
+      return
+    }
+
+    const matchedCompany = companies.find(
+      (entry) =>
+        String(entry?.id) === String(editingMapping?.company_id) ||
+        String(entry?.company_name || '').trim().toLowerCase() ===
+          String(editingMapping?.company_name || '').trim().toLowerCase()
+    )
+
+    const companyId = matchedCompany?.id ?? editingMapping?.company_id
+    const companyName = matchedCompany?.company_name ?? editingMapping?.company_name
+
+    if (!companyId || !companyName) {
+      setSaveError('Unable to resolve company for this mapping. Please re-create the mapping from the form.')
+      return
+    }
+
+    upsertMappingMutation.mutate(
+      {
+        company_id: Number(companyId),
+        company_name: companyName,
+        spreadsheet: editCompanySpreadsheet.trim(),
+        sheet_tab_name: editCompanySheetTabName.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          setIsCompanyEditOpen(false)
+          setEditingMapping(null)
+          setEditCompanySpreadsheet('')
+          setEditCompanySheetTabName('')
+        },
+      }
+    )
   }
 
   return (
@@ -178,7 +283,12 @@ export default function AdminSpreadsheetSettings() {
               <button
                 type="button"
                 className="admin-btn-secondary whitespace-nowrap"
-                onClick={() => window.open(settings.global_spreadsheet_url, '_blank')}
+                onClick={() =>
+                  window.open(
+                    settings.global_spreadsheet_view_url || settings.global_spreadsheet_url,
+                    '_blank'
+                  )
+                }
                 disabled={isBusy}
                 aria-label="View current global spreadsheet in new tab"
               >
@@ -207,6 +317,21 @@ export default function AdminSpreadsheetSettings() {
         </div>
 
         <div className="space-y-2">
+          <label className="block text-sm font-semibold text-slate-700" htmlFor="globalSheetTabName">
+            Global sheet tab name (optional)
+          </label>
+          <input
+            id="globalSheetTabName"
+            className="admin-input-control"
+            placeholder="Sheet1"
+            value={globalSheetTabName}
+            onChange={(event) => setGlobalSheetTabName(event.target.value)}
+            disabled={isBusy || isSettingsLoading}
+          />
+          <p className="text-xs text-slate-500">If set, logs will be inserted in this specific tab.</p>
+        </div>
+
+        <div className="space-y-2">
           <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
             <input
               type="checkbox"
@@ -231,6 +356,15 @@ export default function AdminSpreadsheetSettings() {
             <HiOutlineLink />
             Save Global Settings
           </button>
+          <button
+            type="button"
+            className="admin-btn-secondary ml-2"
+            onClick={openGlobalEditModal}
+            disabled={isBusy || isSettingsLoading}
+          >
+            <HiOutlineCog6Tooth />
+            Edit Global
+          </button>
         </div>
       </article>
 
@@ -240,7 +374,7 @@ export default function AdminSpreadsheetSettings() {
           <h3 className="text-lg font-extrabold text-slate-900">Company-Specific Spreadsheet</h3>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-slate-700" htmlFor="companySelect">
               Company
@@ -269,6 +403,20 @@ export default function AdminSpreadsheetSettings() {
               disabled={isBusy || isSettingsLoading}
             />
           </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700" htmlFor="companySheetTabName">
+              Company sheet tab name (optional)
+            </label>
+            <input
+              id="companySheetTabName"
+              className="admin-input-control"
+              placeholder="Deliveries"
+              value={companySheetTabName}
+              onChange={(event) => setCompanySheetTabName(event.target.value)}
+              disabled={isBusy || isSettingsLoading}
+            />
+          </div>
         </div>
 
         <div>
@@ -289,13 +437,14 @@ export default function AdminSpreadsheetSettings() {
               <tr>
                 <th className="px-4 py-3 text-left">Company</th>
                 <th className="px-4 py-3 text-left">Spreadsheet</th>
+                <th className="px-4 py-3 text-left">Tab</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {mappings.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-4 text-slate-500" colSpan={3}>
+                  <td className="px-4 py-4 text-slate-500" colSpan={4}>
                     No company-specific spreadsheet mappings yet.
                   </td>
                 </tr>
@@ -313,12 +462,23 @@ export default function AdminSpreadsheetSettings() {
                         {mapping.spreadsheet_id}
                       </a>
                     </td>
+                    <td className="px-4 py-3 text-slate-600">{mapping.sheet_tab_name || 'Default'}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           type="button"
                           className="admin-btn-secondary"
-                          onClick={() => window.open(mapping.spreadsheet_url, '_blank')}
+                          onClick={() => openCompanyEditModal(mapping)}
+                          disabled={isBusy}
+                          aria-label={`Edit mapping for ${mapping.company_name}`}
+                        >
+                          <HiOutlineCog6Tooth />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-btn-secondary"
+                          onClick={() => window.open(mapping.spreadsheet_view_url || mapping.spreadsheet_url, '_blank')}
                           disabled={isBusy}
                           aria-label={`View spreadsheet for ${mapping.company_name}`}
                         >
@@ -344,6 +504,137 @@ export default function AdminSpreadsheetSettings() {
           </table>
         </div>
       </article>
+
+      {isGlobalEditOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-xl">
+            <h4 className="text-lg font-extrabold text-slate-900">Edit Global Spreadsheet Settings</h4>
+            <p className="mt-1 text-sm text-slate-500">Update the global spreadsheet and fallback behavior.</p>
+
+            <div className="mt-4 space-y-2">
+              <label className="block text-sm font-semibold text-slate-700" htmlFor="globalEditSpreadsheet">
+                Global spreadsheet URL or ID
+              </label>
+              <input
+                id="globalEditSpreadsheet"
+                className="admin-input-control"
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                value={globalEditSpreadsheet}
+                onChange={(event) => setGlobalEditSpreadsheet(event.target.value)}
+                disabled={isBusy}
+              />
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <label className="block text-sm font-semibold text-slate-700" htmlFor="globalEditSheetTabName">
+                Global sheet tab name (optional)
+              </label>
+              <input
+                id="globalEditSheetTabName"
+                className="admin-input-control"
+                placeholder="Sheet1"
+                value={globalEditSheetTabName}
+                onChange={(event) => setGlobalEditSheetTabName(event.target.value)}
+                disabled={isBusy}
+              />
+            </div>
+
+            <div className="mt-4">
+              <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={globalEditFallback}
+                  onChange={(event) => setGlobalEditFallback(event.target.checked)}
+                  disabled={isBusy}
+                />
+                Enable fallback to global sheet
+              </label>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="admin-btn-secondary"
+                onClick={() => setIsGlobalEditOpen(false)}
+                disabled={isBusy}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-btn-primary"
+                onClick={saveGlobalFromModal}
+                disabled={isBusy || !globalEditSpreadsheet.trim()}
+              >
+                <HiOutlineLink />
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isCompanyEditOpen && editingMapping ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-xl">
+            <h4 className="text-lg font-extrabold text-slate-900">Edit Company Spreadsheet Mapping</h4>
+            <p className="mt-1 text-sm text-slate-500">{editingMapping.company_name}</p>
+
+            <div className="mt-4 space-y-2">
+              <label className="block text-sm font-semibold text-slate-700" htmlFor="editCompanySpreadsheet">
+                Company spreadsheet URL or ID
+              </label>
+              <input
+                id="editCompanySpreadsheet"
+                className="admin-input-control"
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                value={editCompanySpreadsheet}
+                onChange={(event) => setEditCompanySpreadsheet(event.target.value)}
+                disabled={isBusy}
+              />
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <label className="block text-sm font-semibold text-slate-700" htmlFor="editCompanySheetTabName">
+                Company sheet tab name (optional)
+              </label>
+              <input
+                id="editCompanySheetTabName"
+                className="admin-input-control"
+                placeholder="Deliveries"
+                value={editCompanySheetTabName}
+                onChange={(event) => setEditCompanySheetTabName(event.target.value)}
+                disabled={isBusy}
+              />
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="admin-btn-secondary"
+                onClick={() => {
+                  setIsCompanyEditOpen(false)
+                  setEditingMapping(null)
+                  setEditCompanySpreadsheet('')
+                  setEditCompanySheetTabName('')
+                }}
+                disabled={isBusy}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-btn-primary"
+                onClick={saveCompanyMappingFromModal}
+                disabled={isBusy || !editCompanySpreadsheet.trim()}
+              >
+                <HiOutlineLink />
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

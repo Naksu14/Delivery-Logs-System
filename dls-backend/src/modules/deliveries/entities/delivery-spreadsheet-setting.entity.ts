@@ -11,6 +11,9 @@ export class DeliverySpreadsheetSetting {
   @Column({ type: 'varchar', length: 255, nullable: true })
   global_spreadsheet_id?: string | null;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  global_sheet_tab_name?: string | null;
+
   @Column({ type: 'boolean', default: true })
   fallback_to_global!: boolean;
 

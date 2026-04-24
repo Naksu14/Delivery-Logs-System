@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
 
 export class UpsertCompanyDeliverySpreadsheetDto {
   @IsOptional()
@@ -14,4 +14,9 @@ export class UpsertCompanyDeliverySpreadsheetDto {
     message: 'spreadsheet must be a valid Google Sheets URL or spreadsheet ID',
   })
   spreadsheet!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  sheet_tab_name?: string;
 }

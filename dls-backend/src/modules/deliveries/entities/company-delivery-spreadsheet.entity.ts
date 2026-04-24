@@ -21,6 +21,9 @@ export class CompanyDeliverySpreadsheet {
   @Column({ type: 'varchar', length: 255 })
   spreadsheet_id!: string;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  sheet_tab_name?: string | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at!: Date;
 

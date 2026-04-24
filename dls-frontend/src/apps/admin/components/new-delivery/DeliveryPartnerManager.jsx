@@ -46,7 +46,7 @@ function TypeBadge({ type }) {
 export default function DeliveryPartnerManager() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(emptyForm);
-  const [editingId, setEditingId] = useState(null);
+  const [editModal, setEditModal] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null);
   const [feedback, setFeedback] = useState('');
   const [typeForm, setTypeForm] = useState('');
@@ -76,7 +76,6 @@ export default function DeliveryPartnerManager() {
 
   const resetForm = () => {
     setForm(emptyForm);
-    setEditingId(null);
     setFeedback('');
   };
 
@@ -132,22 +131,41 @@ export default function DeliveryPartnerManager() {
       name: form.type === 'courier' ? form.name.trim() : null
     };
 
-    if (editingId) {
-      updateMutation.mutate({ id: editingId, payload });
-      return;
-    }
-
     createMutation.mutate(payload);
   };
 
   const beginEdit = (partner) => {
-    setEditingId(partner.id);
-    setForm({
+    setEditModal({
+      id: partner.id,
       type: String(partner.type || 'courier').toLowerCase(),
       name: partner.name || ''
     });
     setDeleteModal(null);
     setFeedback('');
+  };
+
+  const submitEditModal = (event) => {
+    event.preventDefault();
+    if (!editModal?.id) return;
+
+    const payload = {
+      type: editModal.type,
+      name: editModal.type === 'courier' ? String(editModal.name || '').trim() : null
+    };
+
+    if (payload.type === 'courier' && !payload.name) {
+      setFeedback('Courier partner name is required.');
+      return;
+    }
+
+    updateMutation.mutate(
+      { id: editModal.id, payload },
+      {
+        onSuccess: () => {
+          setEditModal(null);
+        }
+      }
+    );
   };
 
   const beginDeletePartner = (partner) => {
@@ -266,15 +284,9 @@ export default function DeliveryPartnerManager() {
               className="admin-btn-primary inline-flex w-full px-5 py-2.5 xl:w-auto"
             >
               <FaPlus />
-              {editingId ? 'Update Partner' : 'Create Partner'}
+              Create Partner
             </button>
           </div>
-
-          {editingId ? (
-            <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
-              Editing partner #{editingId}. Submit to save changes.
-            </div>
-          ) : null}
 
           {feedback ? (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
@@ -431,6 +443,60 @@ export default function DeliveryPartnerManager() {
           )}
         </div>
       </section>
+
+      {editModal ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/45 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-blue-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.3)] sm:p-6">
+            <h4 className="text-lg font-extrabold text-slate-900">Edit Delivery Partner</h4>
+            <form onSubmit={submitEditModal} className="mt-4 space-y-4">
+              <label className="block">
+                <span className="mb-2 block text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-500">
+                  Partner Type
+                </span>
+                <input
+                  className={inputClass}
+                  value={editModal.type === 'courier' ? 'Courier' : 'Supplier'}
+                  disabled
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-500">
+                  Partner Name {editModal.type === 'courier' ? '*' : '(optional)'}
+                </span>
+                <input
+                  className={inputClass}
+                  value={editModal.name}
+                  required={editModal.type === 'courier'}
+                  onChange={(event) =>
+                    setEditModal((prev) => (prev ? { ...prev, name: event.target.value } : prev))
+                  }
+                  placeholder={editModal.type === 'courier' ? 'Enter courier partner name' : 'No name for supplier'}
+                  disabled={updateMutation.isPending}
+                />
+              </label>
+
+              <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                  onClick={() => setEditModal(null)}
+                  disabled={updateMutation.isPending}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="admin-btn-primary px-4 py-2"
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       {deleteModal ? (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/45 p-4">

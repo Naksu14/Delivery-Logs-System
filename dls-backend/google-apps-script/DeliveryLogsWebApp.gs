@@ -1,55 +1,33 @@
 const DEFAULT_HEADERS = [
-  'Date & Time',
-  'Company',
-  'Receiver Name',
-  'Delivery Type',
-  'Deliverer',
-  'Courier/Supplier',
-  'Description',
-  'Received by',
-  'Received at',
-  'Status',
-  'Signature',
-  'Reference Code',
+  'Sender / Source',
+  'Description / Courier',
+  'Received By (Name)',
+  'Date Received',
 ];
 
-const REF_CODE_COLUMN = 12;
-const DELIVERY_ID_COLUMN = 13;
+// Configuration for row spacing based on your sheet layouts
+const COMPANY_HEADER_ROW = 2;
+const COMPANY_DATA_START_ROW = 3;
+const COMPANY_ID_COL = 5;
 
-function doGet(e) {
-  return jsonResponse({
-    status: 'ok',
-    service: 'delivery-logs-webapp',
-    timestamp: new Date().toISOString(),
-    query: (e && e.parameter) || {},
-  });
-}
+const GLOBAL_HEADER_ROW = 1;
+const GLOBAL_DATA_START_ROW = 2;
+const GLOBAL_ID_COL = 13;
 
 function doPost(e) {
   try {
     const req = parseRequest(e);
     const action = req.action || 'appendDeliveryLog';
 
-    if (
-      action !== 'appendDeliveryLog' &&
-      action !== 'upsertDeliveryLog' &&
-      action !== 'syncDeliveryLog'
-    ) {
-      return jsonResponse({
-        status: 'error',
-        message: 'Unsupported action: ' + action,
-      });
+    if (action === 'validateSpreadsheetAccess') {
+      return validateSpreadsheetAccess(req);
     }
+
+    // Check if NestJS sent 'company' or 'global'
+    const source = req.source === 'company' ? 'company' : 'global';
 
     const spreadsheetId =
       req.spreadsheetId || getScriptProperty('SPREADSHEET_ID');
-    const sheetTabName =
-      req.sheetTabName ||
-      req.sheetName ||
-      buildDefaultSheetTabName(req) ||
-      getScriptProperty('SHEET_TAB_NAME') ||
-      'Sheet1';
-
     if (!spreadsheetId) {
       return jsonResponse({
         status: 'error',
@@ -57,229 +35,217 @@ function doPost(e) {
       });
     }
 
-    if (!sheetTabName) {
-      return jsonResponse({
-        status: 'error',
-        message: 'sheetTabName is required',
-      });
-    }
-
     const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    const sheetTabName = req.sheetTabName || req.sheetName || 'Sheet1';
     let sheet = spreadsheet.getSheetByName(sheetTabName);
+
     if (!sheet) {
       sheet = spreadsheet.insertSheet(sheetTabName);
     }
 
-    const headers =
-      Array.isArray(req.headers) && req.headers.length > 0
-        ? req.headers
-        : DEFAULT_HEADERS;
-    ensureHeaders(sheet, headers);
+    let result;
 
-    const row = buildRow(req);
-    const upsertResult = upsertDeliveryRow(sheet, req, row, action);
+    // STRICT ROUTING: Never cross the rules between Global and Company
+    if (source === 'company') {
+      ensureCompanyHeaders(sheet);
+      const condensedRow = buildCondensedRow(req);
+      result = upsertDeliveryRow(
+        sheet,
+        req,
+        condensedRow,
+        action,
+        COMPANY_DATA_START_ROW,
+        COMPANY_ID_COL,
+      );
+    } else {
+      ensureGlobalHeaders(sheet);
+      const row = buildGlobalRow(req);
+      result = upsertDeliveryRow(
+        sheet,
+        req,
+        row,
+        action,
+        GLOBAL_DATA_START_ROW,
+        GLOBAL_ID_COL,
+      );
+    }
 
     return jsonResponse({
       status: 'success',
-      message:
-        upsertResult.mode === 'updated'
-          ? 'Delivery log updated'
-          : 'Delivery log appended',
-      spreadsheetId: spreadsheetId,
-      sheetTabName: sheetTabName,
-      rowLength: row.length,
-      mode: upsertResult.mode,
-      rowIndex: upsertResult.rowIndex,
+      mode: result.mode,
+      rowIndex: result.rowIndex,
     });
   } catch (error) {
-    return jsonResponse({
-      status: 'error',
-      message: error && error.message ? error.message : String(error),
-    });
+    return jsonResponse({ status: 'error', message: String(error) });
   }
 }
 
-function upsertDeliveryRow(sheet, req, row, action) {
-  if (action === 'appendDeliveryLog') {
-    sheet.appendRow(row);
-    const appendedRowIndex = sheet.getLastRow();
-    writeDeliveryIdCell(sheet, appendedRowIndex, req.delivery_id);
-    return { mode: 'appended', rowIndex: appendedRowIndex };
-  }
+function validateSpreadsheetAccess(req) {
+  try {
+    const spreadsheetId =
+      req.spreadsheetId || getScriptProperty('SPREADSHEET_ID');
+    if (!spreadsheetId) {
+      return jsonResponse({
+        status: 'error',
+        message: 'spreadsheetId is required',
+      });
+    }
 
-  const rowIndex = findExistingRowIndex(sheet, req, row);
+    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    const sheetTabName = safeValue(req.sheetTabName || req.sheetName).trim();
+    const targetSheet = sheetTabName
+      ? spreadsheet.getSheetByName(sheetTabName)
+      : null;
+
+    return jsonResponse({
+      status: 'success',
+      spreadsheet_name: spreadsheet.getName(),
+      sheet_tab_name: sheetTabName || null,
+      sheet_exists: sheetTabName ? Boolean(targetSheet) : null,
+    });
+  } catch (error) {
+    return jsonResponse({ status: 'error', message: String(error) });
+  }
+}
+
+function upsertDeliveryRow(sheet, req, row, action, dataStartRow, idColumn) {
+  const deliveryId = req.delivery_id;
+  let rowIndex = -1;
+
+  if (action !== 'appendDeliveryLog' && deliveryId) {
+    rowIndex = findExistingRowIndex(sheet, deliveryId, dataStartRow, idColumn);
+  }
 
   if (rowIndex > 0) {
+    // Update existing row
     sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
-    writeDeliveryIdCell(sheet, rowIndex, req.delivery_id);
-    return { mode: 'updated', rowIndex: rowIndex };
+    writeDeliveryIdCell(sheet, rowIndex, deliveryId, idColumn);
+  } else {
+    // Append to the next completely empty row
+    rowIndex = getNextInsertRow(sheet, dataStartRow);
+    sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+    writeDeliveryIdCell(sheet, rowIndex, deliveryId, idColumn);
   }
 
-  sheet.appendRow(row);
-  const appendedRowIndex = sheet.getLastRow();
-  writeDeliveryIdCell(sheet, appendedRowIndex, req.delivery_id);
-  return { mode: 'appended', rowIndex: appendedRowIndex };
-}
-
-function findExistingRowIndex(sheet, req, row) {
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) {
-    return -1;
-  }
-
-  const rowCount = lastRow - 1;
-  const keyValues = sheet.getRange(2, REF_CODE_COLUMN, rowCount, 2).getValues();
-
-  const targetDeliveryId = normalizeText(req && req.delivery_id);
-  const targetRef = normalizeText(
-    req && req.reference_code ? req.reference_code : row[11],
-  );
-
-  if (!targetDeliveryId && !targetRef) {
-    return -1;
-  }
-
-  // Reverse scan favors the most recent row in case legacy duplicates already exist.
-  for (var i = keyValues.length - 1; i >= 0; i -= 1) {
-    const currentRef = normalizeText(keyValues[i][0]);
-    const currentDeliveryId = normalizeText(keyValues[i][1]);
-
-    if (
-      targetDeliveryId &&
-      currentDeliveryId &&
-      targetDeliveryId === currentDeliveryId
-    ) {
-      return i + 2;
+  // Force Date Format and Hide ID Column immediately
+  try {
+    if (idColumn === COMPANY_ID_COL) {
+      sheet.getRange(rowIndex, 4).setNumberFormat('mmm dd, yyyy'); // Force Jan 26, 2026 format
     }
-
-    if (targetRef && currentRef && targetRef === currentRef) {
-      return i + 2;
-    }
-  }
-
-  return -1;
-}
-
-function parseRequest(e) {
-  const params = (e && e.parameter) || {};
-  const rawBody =
-    e && e.postData && typeof e.postData.contents === 'string'
-      ? e.postData.contents.trim()
-      : '';
-
-  let body = {};
-  if (rawBody) {
-    body = parseJsonSafe(rawBody) || {};
-  }
-
-  const wrappedPayload = parseJsonSafe(params.payload) || {};
-  const merged = Object.assign({}, wrappedPayload, body);
-
-  const headers =
-    (Array.isArray(merged.headers) && merged.headers) ||
-    parseJsonSafe(params.headers) ||
-    DEFAULT_HEADERS;
-
-  const rowFromPayload =
-    (Array.isArray(merged.row) && merged.row) ||
-    parseJsonSafe(params.row) ||
-    null;
-
-  const rowData = Object.assign({}, merged.rowData || {}, {
-    date_time: firstNonEmpty(
-      merged?.rowData?.date_time,
-      params.dateTime,
-      params.date_time,
-      params.dateReceived,
-      params.date_received,
-    ),
-    company: firstNonEmpty(merged?.rowData?.company, params.company),
-    receiver_name: firstNonEmpty(
-      merged?.rowData?.receiver_name,
-      params.receiverName,
-      params.receiver_name,
-    ),
-    delivery_type: firstNonEmpty(
-      merged?.rowData?.delivery_type,
-      params.deliveryType,
-      params.delivery_type,
-    ),
-    deliverer: firstNonEmpty(merged?.rowData?.deliverer, params.deliverer),
-    courier_supplier: firstNonEmpty(
-      merged?.rowData?.courier_supplier,
-      params.courierSupplier,
-      params.courier_supplier,
-    ),
-    description: firstNonEmpty(
-      merged?.rowData?.description,
-      params.description,
-    ),
-    received_by: firstNonEmpty(
-      merged?.rowData?.received_by,
-      params.receivedBy,
-      params.received_by,
-    ),
-    received_at: firstNonEmpty(
-      merged?.rowData?.received_at,
-      params.receivedAt,
-      params.received_at,
-    ),
-    status: firstNonEmpty(merged?.rowData?.status, params.status),
-    signature: firstNonEmpty(merged?.rowData?.signature, params.signature),
-    reference_code: firstNonEmpty(
-      merged?.rowData?.reference_code,
-      merged?.delivery?.reference_code,
-      params.referenceCode,
-      params.reference_code,
-    ),
-  });
-
-  const delivery = merged.delivery || null;
-  const deliveryId = firstNonEmpty(
-    delivery && delivery.id,
-    merged?.delivery_id,
-    params.deliveryId,
-    params.delivery_id,
-  );
+    sheet.hideColumns(idColumn);
+  } catch (e) {}
 
   return {
-    action: firstNonEmpty(merged.action, params.action),
-    spreadsheetId: firstNonEmpty(
-      merged.spreadsheetId,
-      merged.spreadsheet_id,
-      params.spreadsheetId,
-      params.spreadsheet_id,
-    ),
-    sheetTabName: firstNonEmpty(
-      merged.sheetTabName,
-      merged.sheetName,
-      params.sheetTabName,
-      params.sheetName,
-    ),
-    sheetName: firstNonEmpty(
-      merged.sheetName,
-      merged.sheetTabName,
-      params.sheetName,
-      params.sheetTabName,
-    ),
-    headers: headers,
-    row: rowFromPayload,
-    rowData: rowData,
-    delivery: delivery,
-    delivery_id: deliveryId,
-    reference_code: firstNonEmpty(rowData.reference_code),
+    mode:
+      rowIndex > 0 && action !== 'appendDeliveryLog' ? 'updated' : 'appended',
+    rowIndex: rowIndex,
   };
 }
 
-function buildRow(req) {
-  if (Array.isArray(req.row) && req.row.length > 0) {
-    const row = req.row.slice(0, 12);
-    while (row.length < 12) {
-      row.push('');
+function getNextInsertRow(sheet, dataStartRow) {
+  const lastRow = sheet.getLastRow();
+  // If sheet is empty below headers, start exactly at dataStartRow
+  if (lastRow < dataStartRow) return dataStartRow;
+
+  const rowCount = lastRow - dataStartRow + 1;
+  const values = sheet.getRange(dataStartRow, 1, rowCount, 1).getValues();
+
+  // Scan downward. First row with an empty Column A is where we insert.
+  for (let i = 0; i < values.length; i++) {
+    if (String(values[i][0]).trim() === '') {
+      return i + dataStartRow;
     }
-    return row;
+  }
+  return lastRow + 1;
+}
+
+function findExistingRowIndex(sheet, targetDeliveryId, dataStartRow, idColumn) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < dataStartRow || !targetDeliveryId) return -1;
+  if (sheet.getMaxColumns() < idColumn) return -1;
+
+  const rowCount = lastRow - dataStartRow + 1;
+  const keyValues = sheet
+    .getRange(dataStartRow, idColumn, rowCount, 1)
+    .getValues();
+
+  for (let i = keyValues.length - 1; i >= 0; i--) {
+    if (normalizeText(keyValues[i][0]) === normalizeText(targetDeliveryId)) {
+      return i + dataStartRow;
+    }
+  }
+  return -1;
+}
+
+function buildCondensedRow(req) {
+  const d = req.rowData || {};
+  const del = req.delivery || {};
+  const r = Array.isArray(req.row) ? req.row : [];
+
+  // 1. Deliverer
+  let deliverer = firstNonEmpty(d.deliverer, del.deliverer_name);
+  if (!deliverer && r.length >= 7) deliverer = r[4];
+  else if (!deliverer && r.length > 0) deliverer = r[0];
+
+  // 2. Description & Courier
+  let itemDescription = firstNonEmpty(
+    d.delivery_type,
+    del.delivery_type,
+    d.description,
+    del.description,
+  );
+  let courierInfo = firstNonEmpty(d.courier_supplier, del.courier_or_supplier);
+
+  if (!itemDescription && r.length >= 7) itemDescription = r[3];
+  if (!courierInfo && r.length >= 7) courierInfo = r[5];
+
+  // Legacy fallback
+  if ((!itemDescription || !courierInfo) && r.length > 0 && r.length < 7) {
+    let split = String(r[1] || '').split(' / ');
+    if (!itemDescription) itemDescription = split[0] || '';
+    if (!courierInfo) courierInfo = split.slice(1).join(' / ') || '';
   }
 
+  const descriptionAndCourier = [itemDescription, courierInfo]
+    .filter((v) => v && String(v).trim() !== '')
+    .join(' / ');
+
+  // 3. Receiver
+  let receiver = firstNonEmpty(d.receiver_name, del.recipient_name);
+  if (!receiver && r.length >= 7) receiver = r[2];
+  else if (!receiver && r.length > 0) receiver = r[2];
+
+  // 4. Date
+  let rawDate = firstNonEmpty(d.date_time, d.date_received, del.date_received);
+  if (!rawDate && r.length >= 7) rawDate = r[0];
+  else if (!rawDate && r.length > 0) rawDate = r[3];
+
+  let formattedDate = '';
+  if (rawDate) {
+    const dateObj = new Date(rawDate);
+    if (!isNaN(dateObj.getTime())) {
+      formattedDate = Utilities.formatDate(
+        dateObj,
+        Session.getScriptTimeZone(),
+        'MMM dd, yyyy',
+      );
+    } else {
+      formattedDate = safeValue(rawDate);
+    }
+  }
+
+  return [
+    safeValue(deliverer),
+    descriptionAndCourier,
+    safeValue(receiver),
+    formattedDate,
+  ];
+}
+
+function buildGlobalRow(req) {
+  if (Array.isArray(req.row) && req.row.length > 0) {
+    return req.row;
+  }
   const d = req.rowData || {};
   return [
     safeValue(d.date_time),
@@ -297,98 +263,119 @@ function buildRow(req) {
   ];
 }
 
-function buildDefaultSheetTabName(req) {
-  const candidates = [
-    req && req.rowData && req.rowData.date_time,
-    req && req.rowData && req.rowData.received_at,
-    req && req.row && req.row[0],
+function ensureCompanyHeaders(sheet) {
+  const headers = [
+    'Sender / Source',
+    'Description / Courier',
+    'Received By (Name)',
+    'Date Received',
+    'delivery_id',
   ];
-
-  for (var i = 0; i < candidates.length; i += 1) {
-    const value = candidates[i];
-    if (!value) {
-      continue;
-    }
-
-    const date = new Date(value);
-    if (!isNaN(date.getTime())) {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      return 'Delivery Logs ' + year + '-' + month;
-    }
+  if (sheet.getMaxColumns() < headers.length) {
+    sheet.insertColumnsAfter(
+      sheet.getMaxColumns(),
+      headers.length - sheet.getMaxColumns(),
+    );
   }
-
-  return '';
+  const currentHeaders = sheet
+    .getRange(COMPANY_HEADER_ROW, 1, 1, headers.length)
+    .getValues()[0]
+    .map(normalizeText);
+  if (currentHeaders[0] !== normalizeText(headers[0])) {
+    sheet
+      .getRange(COMPANY_HEADER_ROW, 1, 1, headers.length)
+      .setValues([headers]);
+  }
+  try {
+    sheet.getRange(COMPANY_HEADER_ROW, COMPANY_ID_COL).setValue('delivery_id');
+    sheet.hideColumns(COMPANY_ID_COL);
+  } catch (e) {}
 }
 
-function ensureHeaders(sheet, headers) {
-  if (sheet.getLastRow() > 0) {
-    ensureDeliveryIdHeader(sheet);
-    return;
+function ensureGlobalHeaders(sheet) {
+  const headers = [
+    'Date & Time',
+    'Company',
+    'Receiver Name',
+    'Delivery Type',
+    'Deliverer',
+    'Courier/Supplier',
+    'Description',
+    'Received by',
+    'Received at',
+    'Status',
+    'Signature',
+    'Reference Code',
+    'delivery_id',
+  ];
+  if (sheet.getMaxColumns() < headers.length) {
+    sheet.insertColumnsAfter(
+      sheet.getMaxColumns(),
+      headers.length - sheet.getMaxColumns(),
+    );
   }
-
-  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  ensureDeliveryIdHeader(sheet);
+  const currentHeaders = sheet
+    .getRange(GLOBAL_HEADER_ROW, 1, 1, headers.length)
+    .getValues()[0]
+    .map(normalizeText);
+  if (currentHeaders[0] !== normalizeText(headers[0])) {
+    sheet
+      .getRange(GLOBAL_HEADER_ROW, 1, 1, headers.length)
+      .setValues([headers]);
+  }
+  try {
+    sheet.getRange(GLOBAL_HEADER_ROW, GLOBAL_ID_COL).setValue('delivery_id');
+    sheet.hideColumns(GLOBAL_ID_COL);
+  } catch (e) {}
 }
 
-function ensureDeliveryIdHeader(sheet) {
-  const headerCell = sheet.getRange(1, DELIVERY_ID_COLUMN);
-  if (!normalizeText(headerCell.getValue())) {
-    headerCell.setValue('delivery_id');
-    try {
-      sheet.hideColumns(DELIVERY_ID_COLUMN);
-    } catch (error) {
-      // Ignore hide failures for locked sheets; data sync still works.
-    }
-  }
+function writeDeliveryIdCell(sheet, rowIndex, deliveryId, idColumn) {
+  if (!deliveryId) return;
+  sheet.getRange(rowIndex, idColumn).setValue(String(deliveryId));
 }
 
-function writeDeliveryIdCell(sheet, rowIndex, deliveryId) {
-  const normalizedDeliveryId = normalizeText(deliveryId);
-  if (!normalizedDeliveryId) {
-    return;
-  }
+// ---- UTILITIES ----
+function parseRequest(e) {
+  const params = (e && e.parameter) || {};
+  const rawBody = e?.postData?.contents?.trim() || '';
+  const body = rawBody ? parseJsonSafe(rawBody) || {} : {};
+  const merged = Object.assign({}, parseJsonSafe(params.payload) || {}, body);
 
-  sheet.getRange(rowIndex, DELIVERY_ID_COLUMN).setValue(String(deliveryId));
+  return {
+    action: merged.action || params.action,
+    source: merged.source || params.source, // 'company' or 'global'
+    spreadsheetId: merged.spreadsheetId || params.spreadsheetId,
+    sheetTabName:
+      merged.sheetTabName ||
+      merged.sheetName ||
+      params.sheetTabName ||
+      params.sheetName,
+    rowData: merged.rowData || {},
+    row: merged.row || [],
+    delivery_id:
+      merged?.delivery?.id || merged.delivery_id || params.deliveryId,
+  };
 }
 
 function safeValue(value) {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  return String(value);
+  return value == null ? '' : String(value);
 }
-
 function normalizeText(value) {
   return safeValue(value).trim().toLowerCase();
 }
-
-function firstNonEmpty() {
-  for (var i = 0; i < arguments.length; i += 1) {
-    var value = arguments[i];
-    if (value !== null && value !== undefined && String(value).trim() !== '') {
-      return value;
-    }
-  }
-  return '';
+function firstNonEmpty(...args) {
+  return args.find((v) => v != null && String(v).trim() !== '') || '';
 }
-
 function parseJsonSafe(text) {
-  if (!text || typeof text !== 'string') {
-    return null;
-  }
-
   try {
     return JSON.parse(text);
-  } catch (error) {
+  } catch (e) {
     return null;
   }
 }
-
 function getScriptProperty(name) {
   return PropertiesService.getScriptProperties().getProperty(name);
 }
-
 function jsonResponse(payload) {
   return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(
     ContentService.MimeType.JSON,
