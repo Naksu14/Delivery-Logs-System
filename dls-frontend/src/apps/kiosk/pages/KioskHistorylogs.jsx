@@ -133,16 +133,16 @@ const StatusChip = styled('span')(({ status }) => {
 })
 
 const columnConfig = [
-  { id: 'date_received', label: 'Date Delivered', shortLabel: 'Delivered', weight: 12 },
-  { id: 'company_name', label: 'Company', shortLabel: 'Company', weight: 22 },
-  { id: 'recipient_name', label: 'Recipient Name', shortLabel: 'Recipient', weight: 12 },
+  { id: 'date_received', label: 'Date Delivered', shortLabel: 'Delivered', weight: 11 },
+  { id: 'company_name', label: 'Company', shortLabel: 'Company', weight: 21 },
+  { id: 'recipient_name', label: 'Recipient Name', shortLabel: 'Recipient', weight: 11 },
   { id: 'delivery_type', label: 'Type', shortLabel: 'Type', weight: 8 },
-  { id: 'partner', label: 'Partner', shortLabel: 'Partner', weight: 13 },
-  { id: 'deliverer_name', label: 'Deliverer', shortLabel: 'Deliverer', weight: 12 },
+  { id: 'partner', label: 'Partner', shortLabel: 'Partner', weight: 12 },
+  { id: 'deliverer_name', label: 'Deliverer', shortLabel: 'Deliverer', weight: 11 },
   { id: 'is_status', label: 'Status', shortLabel: 'Status', weight: 9 },
-  { id: 'received_by', label: 'Received By', shortLabel: 'Recv By', weight: 8 },
-  { id: 'received_at', label: 'Date Received', shortLabel: 'Date Rec', weight: 7 },
-  { id: 'action', label: 'Action', shortLabel: 'Action', weight: 7 }
+  { id: 'received_by', label: 'Received By', shortLabel: 'Recv By', weight: 7 },
+  { id: 'received_at', label: 'Date Received', shortLabel: 'Date Rec', weight: 6 },
+  { id: 'action', label: 'Action', shortLabel: 'Action', weight: 10 }
 ]
 
 function normalizeWeights(columns) {
@@ -496,10 +496,10 @@ export default function KioskHistoryLogs() {
     <div className="fixed inset-0 overflow-auto" style={{ backgroundColor: COLORS.background }}>
       <KioskBlobsBackground opacity={0.7} />
 
-      <div className="relative z-10 min-h-screen px-5 py-6">
+      <div className="relative z-10 min-h-screen px-4 py-4">
         <Box
           sx={{
-            mb: 8,
+            mb: 5,
             display: 'grid',
             gridTemplateColumns: { xs: '1fr', md: 'auto 1fr auto' },
             alignItems: 'center',
@@ -532,7 +532,7 @@ export default function KioskHistoryLogs() {
 
           <Stack
             direction="row"
-            spacing={2}
+            spacing={1.5}
             alignItems="center"
             sx={{ justifySelf: { xs: 'start', md: 'center' }, width: '100%', minWidth: 0 }}
           >
@@ -597,7 +597,7 @@ export default function KioskHistoryLogs() {
           {isRealtimeConnected ? 'Live updates on' : 'Reconnecting live updates'}
         </Box>
 
-        <Box sx={{ mb: 3, display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' } }}>
+        <Box sx={{ mb: 2.5, display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' } }}>
           <StatCard>
             <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mb: 0.7 }}>
               <Box sx={{ width: 28, height: 28, borderRadius: '8px', bgcolor: '#fff9c8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -637,16 +637,16 @@ export default function KioskHistoryLogs() {
 
         <Box
           sx={{
-            mb: 3,
-            p: 2,
+            mb: 2,
+            p: 1.5,
             borderRadius: '18px',
             border: `1px solid ${COLORS.border}`,
             background: 'rgba(255,255,255,0.88)',
             backdropFilter: 'blur(8px)',
             boxShadow: '0 10px 24px rgba(0,0,0,0.05)',
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' },
-            gap: 1.5
+            gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: '2fr 1fr' },
+            gap: 1
           }}
         >
           <TextField
@@ -718,11 +718,11 @@ export default function KioskHistoryLogs() {
                       key={column.id}
                       sx={
                         under1080
-                          ? { fontSize: '0.7rem', padding: '10px 8px', letterSpacing: '0.02em' }
+                          ? { fontSize: '0.68rem', padding: '8px 6px', letterSpacing: '0.02em' }
                           : under1366
-                            ? { fontSize: '0.74rem', padding: '11px 9px' }
+                            ? { fontSize: '0.72rem', padding: '10px 8px', letterSpacing: '0.03em' }
                             : under1720
-                              ? { fontSize: '0.78rem', padding: '12px 10px' }
+                              ? { fontSize: '0.76rem', padding: '11px 9px' }
                               : undefined
                       }
                     >
@@ -736,7 +736,7 @@ export default function KioskHistoryLogs() {
                   <TableRow>
                     <BodyCell
                       colSpan={visibleColumns.length}
-                      sx={{ textAlign: 'center', py: 6, color: COLORS.muted }}
+                      sx={{ textAlign: 'center', py: 5, color: COLORS.muted }}
                     >
                       No logs match your current search or filter.
                     </BodyCell>
@@ -749,11 +749,11 @@ export default function KioskHistoryLogs() {
                           key={`${log.id}-${column.id}`}
                           sx={
                             under1080
-                              ? { fontSize: '0.73rem', padding: '9px 7px', lineHeight: 1.25 }
+                              ? { fontSize: '0.7rem', padding: '8px 6px', lineHeight: 1.2 }
                               : under1366
-                                ? { fontSize: '0.78rem', padding: '10px 8px' }
+                                ? { fontSize: '0.74rem', padding: '9px 7px', lineHeight: 1.25 }
                                 : under1720
-                                  ? { fontSize: '0.82rem', padding: '10px 9px' }
+                                  ? { fontSize: '0.8rem', padding: '10px 8px' }
                                   : undefined
                           }
                         >
@@ -765,15 +765,15 @@ export default function KioskHistoryLogs() {
                                 onClick={() => openVerifyDialog(log)}
                                 disabled={verifyReleaseMutation.isPending}
                                 sx={{
-                                  minWidth: under1080 ? 72 : 96,
-                                  height: under1080 ? 28 : 32,
+                                  minWidth: under1080 ? 68 : under1366 ? 76 : 92,
+                                  height: under1080 ? 26 : under1366 ? 28 : 30,
                                   borderRadius: '999px',
                                   backgroundColor: '#111111',
                                   color: '#ffffff',
                                   textTransform: 'none',
                                   fontWeight: 700,
-                                  fontSize: under1080 ? '0.64rem' : '0.72rem',
-                                  px: under1080 ? 1.1 : 1.6,
+                                  fontSize: under1080 ? '0.62rem' : under1366 ? '0.66rem' : '0.7rem',
+                                  px: under1080 ? 1 : under1366 ? 1.15 : 1.4,
                                   '&:hover': {
                                     backgroundColor: '#272727'
                                   }
@@ -782,7 +782,7 @@ export default function KioskHistoryLogs() {
                                 Verify
                               </Button>
                             ) : (
-                              <Typography sx={{ fontSize: under1080 ? '0.67rem' : '0.73rem', color: COLORS.muted, fontWeight: 700 }}>
+                              <Typography sx={{ fontSize: under1080 ? '0.65rem' : under1366 ? '0.68rem' : '0.71rem', color: COLORS.muted, fontWeight: 700 }}>
                                 Completed
                               </Typography>
                             )
@@ -791,11 +791,11 @@ export default function KioskHistoryLogs() {
                               status={log.is_status}
                               style={
                                 under1080
-                                  ? { minWidth: 56, padding: '3px 8px', fontSize: '0.66rem' }
+                                  ? { minWidth: 54, padding: '2px 7px', fontSize: '0.64rem' }
                                   : under1366
-                                    ? { minWidth: 60, padding: '4px 9px', fontSize: '0.69rem' }
+                                    ? { minWidth: 60, padding: '3px 8px', fontSize: '0.68rem' }
                                     : under1720
-                                      ? { minWidth: 62, padding: '4px 9px', fontSize: '0.7rem' }
+                                      ? { minWidth: 62, padding: '4px 8px', fontSize: '0.7rem' }
                                       : undefined
                               }
                             >
@@ -815,7 +815,7 @@ export default function KioskHistoryLogs() {
         )}
 
         {verifyDialogOpen ? (
-          <div className="fixed inset-0 z-[70] px-4 py-6 sm:px-6" role="dialog" aria-modal="true" aria-label="Verify Delivery Release">
+          <div className="fixed inset-0 z-[70] px-2 py-3 sm:px-4 md:px-6" role="dialog" aria-modal="true" aria-label="Verify Delivery Release">
             <button
               type="button"
               className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]"
@@ -824,22 +824,22 @@ export default function KioskHistoryLogs() {
               disabled={verifyReleaseMutation.isPending}
             />
 
-            <div className="relative z-10 mx-auto flex min-h-full max-w-4xl items-center">
-              <div className="flex w-full flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_35px_90px_rgba(0,0,0,0.28)]">
-                <div className="relative overflow-hidden border-b border-slate-200 bg-gradient-to-br from-[#dde847] via-[#d9e74a] to-[#cfe03a] p-6 sm:p-7">
+            <div className="relative z-10 mx-auto flex min-h-full max-w-[52rem] items-center md:max-w-4xl">
+              <div className="flex w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_35px_90px_rgba(0,0,0,0.28)] sm:rounded-[28px]">
+                <div className="relative overflow-hidden border-b border-slate-200 bg-gradient-to-br from-[#dde847] via-[#d9e74a] to-[#cfe03a] p-4 sm:p-5 md:p-6">
                   <div className="absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/20" />
                   <div className="absolute -bottom-14 right-20 h-36 w-36 rounded-full bg-black/5" />
 
-                  <div className="relative flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-4">
-                      <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/90 text-black shadow">
-                        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden="true">
+                  <div className="relative flex items-start justify-between gap-2.5 md:gap-3">
+                    <div className="flex items-start gap-2.5 sm:gap-3">
+                      <div className="h-10 w-10 flex-shrink-0 grid place-items-center rounded-xl bg-white/90 text-black shadow sm:h-12 sm:w-12 sm:rounded-2xl">
+                        <svg viewBox="0 0 24 24" className="h-5 w-5 sm:h-6 sm:w-6" fill="currentColor" aria-hidden="true">
                           <path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" />
                         </svg>
                       </div>
-                      <div>
-                        <span className="text-2xl font-black tracking-tight text-black sm:text-[1.75rem]">Verify Delivery Release</span>
-                        <p className="mt-1 text-sm font-medium text-black/70">Confirm reference code, receiver name, and signature before release.</p>
+                      <div className="min-w-0">
+                        <span className="text-lg font-black tracking-tight text-black sm:text-xl md:text-[1.65rem]">Verify Delivery Release</span>
+                        <p className="mt-0.5 text-[11px] font-medium text-black/70 sm:mt-1 sm:text-xs">Confirm reference code, receiver name, and signature before release.</p>
                       </div>
                     </div>
 
@@ -847,25 +847,25 @@ export default function KioskHistoryLogs() {
                       type="button"
                       onClick={closeVerifyDialog}
                       disabled={verifyReleaseMutation.isPending}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white/65 text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                      className="h-9 w-9 flex-shrink-0 inline-flex items-center justify-center rounded-full border border-black/10 bg-white/65 text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:w-10"
                       aria-label="Close verification dialog"
                     >
-                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor" aria-hidden="true">
                         <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4l-6.3 6.3-1.42-1.42L9.17 12l-6.3-6.29L4.29 4.3l6.3 6.3 6.3-6.3z" />
                       </svg>
                     </button>
                   </div>
                 </div>
 
-                <div className="p-6 sm:p-7">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
-                    <p className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Delivery</p>
-                    <p className="mt-1 text-lg font-bold text-slate-900">{selectedDelivery?.company_name || selectedDelivery?.recipient_name || 'Unknown recipient'}</p>
+                <div className="p-4 sm:p-5 md:p-6 max-h-[calc(100vh-12rem)] overflow-y-auto">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-3.5 md:rounded-2xl md:p-4">
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-500 sm:text-[11px]">Delivery</p>
+                    <p className="mt-1 text-base font-bold text-slate-900 sm:text-lg">{selectedDelivery?.company_name || selectedDelivery?.recipient_name || 'Unknown recipient'}</p>
                   </div>
 
-                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="mt-3 grid grid-cols-1 gap-2.5 sm:gap-3 md:grid-cols-2">
                     <div>
-                      <label htmlFor="verify-reference-code" className="mb-1 block text-xs font-extrabold uppercase tracking-[0.07em] text-slate-600">Reference Code</label>
+                      <label htmlFor="verify-reference-code" className="mb-1 block text-xs font-extrabold uppercase tracking-[0.07em] text-slate-600 md:mb-1.5">Reference Code</label>
                       <input
                         id="verify-reference-code"
                         type="text"
@@ -876,24 +876,24 @@ export default function KioskHistoryLogs() {
                           reference_code: event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5)
                         }))}
                         maxLength={5}
-                        className="h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold uppercase tracking-[0.24em] text-slate-900 outline-none transition focus:border-[#c4d532] focus:ring-4 focus:ring-[#dde847]/25"
+                        className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold uppercase tracking-[0.24em] text-slate-900 outline-none transition focus:border-[#c4d532] focus:ring-4 focus:ring-[#dde847]/25 sm:h-12 sm:px-4 md:rounded-xl"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="verify-receiver-name" className="mb-1 block text-xs font-extrabold uppercase tracking-[0.07em] text-slate-600">Receiver Name</label>
+                      <label htmlFor="verify-receiver-name" className="mb-1 block text-xs font-extrabold uppercase tracking-[0.07em] text-slate-600 md:mb-1.5">Receiver Name</label>
                       <input
                         id="verify-receiver-name"
                         type="text"
                         placeholder="Full name of receiver"
                         value={verificationForm.received_by}
                         onChange={(event) => setVerificationForm((prev) => ({ ...prev, received_by: event.target.value }))}
-                        className="h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#c4d532] focus:ring-4 focus:ring-[#dde847]/25"
+                        className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#c4d532] focus:ring-4 focus:ring-[#dde847]/25 sm:h-12 sm:px-4 md:rounded-xl"
                       />
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <div className="mb-1 flex items-center justify-between gap-3">
+                    <div className="md:col-span-2">
+                      <div className="mb-1 flex items-center justify-between gap-2 md:mb-1.5">
                         <label className="text-xs font-extrabold uppercase tracking-[0.07em] text-slate-600">Receiver Signature</label>
                         <button
                           type="button"
@@ -904,8 +904,8 @@ export default function KioskHistoryLogs() {
                           Clear
                         </button>
                       </div>
-                      <div className={`rounded-2xl border bg-white p-2 shadow-inner transition ${isSignaturePresent ? 'border-lime-400' : 'border-dashed border-slate-300'}`}>
-                        <div className="relative h-56 overflow-hidden rounded-xl bg-slate-50 sm:h-52">
+                      <div className={`rounded-lg border bg-white p-2 shadow-inner transition sm:rounded-xl md:rounded-2xl ${isSignaturePresent ? 'border-lime-400' : 'border-dashed border-slate-300'}`}>
+                        <div className="relative h-48 overflow-hidden rounded-lg bg-slate-50 sm:h-56 md:h-64">
                           <canvas
                             ref={signatureCanvasRef}
                             onMouseDown={startDrawing}
@@ -920,8 +920,8 @@ export default function KioskHistoryLogs() {
 
                           {!isSignaturePresent && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-4">
-                              <div className="rounded-md px-3 py-1 text-sm font-extrabold text-slate-400">Sign here</div>
-                              <div className="mt-1 text-[11px] font-medium text-slate-400">Use stylus to sign</div>
+                              <div className="rounded-md px-3 py-1 text-xs font-extrabold text-slate-400 sm:text-sm">Sign here</div>
+                              <div className="mt-0.5 text-[10px] font-medium text-slate-400 sm:text-[11px]">Use stylus to sign</div>
                             </div>
                           )}
                         </div>
@@ -930,18 +930,18 @@ export default function KioskHistoryLogs() {
                   </div>
 
                   {verificationError ? (
-                    <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                    <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 sm:mt-4 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm">
                       {verificationError}
                     </div>
                   ) : null}
                 </div>
 
-                <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 sm:px-7">
+                <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-5 sm:py-3 md:px-6">
                   <button
                     type="button"
                     onClick={closeVerifyDialog}
                     disabled={verifyReleaseMutation.isPending}
-                    className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="order-2 inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 sm:order-1 sm:h-11 sm:px-5 sm:text-sm md:rounded-xl"
                   >
                     Cancel
                   </button>
@@ -949,7 +949,7 @@ export default function KioskHistoryLogs() {
                     type="button"
                     onClick={submitVerification}
                     disabled={verifyReleaseMutation.isPending}
-                    className="inline-flex h-11 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-extrabold text-white shadow-[0_10px_20px_rgba(0,0,0,0.2)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="order-1 inline-flex h-10 items-center justify-center rounded-lg bg-slate-950 px-4 text-xs font-extrabold text-white shadow-[0_10px_20px_rgba(0,0,0,0.2)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:order-2 sm:h-11 sm:px-6 sm:text-sm md:rounded-xl"
                   >
                     {verifyReleaseMutation.isPending ? 'Verifying...' : 'Verify and Release'}
                   </button>
