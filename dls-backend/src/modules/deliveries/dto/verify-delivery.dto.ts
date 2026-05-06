@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsString, Matches, MaxLength, IsOptional } from 'class-validator';
 
 export class VerifyDeliveryDto {
   @IsString()
@@ -11,9 +11,11 @@ export class VerifyDeliveryDto {
   @MaxLength(200)
   received_by!: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @Matches(/^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=\s]+$/)
+  @Matches(/^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=\s]+$/, {
+    message: 'receiver_signature must be a valid base64 encoded image (png, jpeg, jpg, or webp)'
+  })
   @MaxLength(300000)
-  receiver_signature!: string;
+  receiver_signature?: string;
 }

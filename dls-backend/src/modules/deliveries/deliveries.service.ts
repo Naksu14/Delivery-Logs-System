@@ -289,7 +289,7 @@ export class DeliveriesService {
     }
 
     delivery.received_by = verifyDeliveryDto.received_by.trim();
-    delivery.receiver_signature = verifyDeliveryDto.receiver_signature.trim();
+    delivery.receiver_signature = verifyDeliveryDto.receiver_signature?.trim() || undefined;
     delivery.received_at = new Date();
     delivery.is_status = 'Released';
 

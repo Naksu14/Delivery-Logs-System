@@ -7,7 +7,8 @@ import {
   deleteDeliveryLog,
   getDeliveryLogById,
   getDeliveryLogs,
-  updateDeliveryLog
+  updateDeliveryLog,
+  verifyAndReleaseDelivery
 } from '../../../services/deliveriesServices';
 import { getDeliveryTypes } from '../../../services/deliveryTypeServices';
 import DeliveryLogsTable from '../components/DeliveryLogsTable';
@@ -156,6 +157,9 @@ export default function AdminDeliveryLogs() {
   const [viewOpen, setViewOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveForm, setReceiveForm] = useState({ reference_code: '', received_by: '' });
+  const [receiveError, setReceiveError] = useState('');
   const [editForm, setEditForm] = useState(emptyEditForm);
 
   const debouncedSearch = useDebounce(search, 500);
@@ -204,6 +208,25 @@ export default function AdminDeliveryLogs() {
     }
   });
 
+  const receiveReleaseMutation = useMutation({
+    mutationFn: ({ id, payload }) => verifyAndReleaseDelivery(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deliveries'] });
+      setReceiveOpen(false);
+      setSelectedDelivery(null);
+      setReceiveForm({ reference_code: '', received_by: '' });
+      setReceiveError('');
+    },
+    onError: (error) => {
+      const message = error?.response?.data?.message;
+      if (Array.isArray(message)) {
+        setReceiveError(message.join(' '));
+      } else {
+        setReceiveError(message || 'Failed to mark delivery as received.');
+      }
+    }
+  });
+
   const openView = async (delivery) => {
     try {
       const fullRecord = delivery?.id ? await getDeliveryLogById(delivery.id) : delivery;
@@ -239,6 +262,30 @@ export default function AdminDeliveryLogs() {
   const openDelete = (delivery) => {
     setSelectedDelivery(delivery);
     setDeleteOpen(true);
+  };
+
+  const openReceive = (delivery) => {
+    setSelectedDelivery(delivery);
+    setReceiveOpen(true);
+    setReceiveError('');
+    setReceiveForm({ reference_code: '', received_by: '' });
+  };
+
+  const submitReceive = (event) => {
+    event.preventDefault();
+    if (!selectedDelivery?.id) return;
+
+    if (!receiveForm.reference_code.trim() || !receiveForm.received_by.trim()) {
+      setReceiveError('Reference code and received by name are required.');
+      return;
+    }
+
+    const payload = {
+      reference_code: receiveForm.reference_code.trim(),
+      received_by: receiveForm.received_by.trim()
+    };
+
+    receiveReleaseMutation.mutate({ id: selectedDelivery.id, payload });
   };
 
   const submitEdit = (event) => {
@@ -290,6 +337,7 @@ export default function AdminDeliveryLogs() {
           onView={openView}
           onEdit={openEdit}
           onDelete={openDelete}
+          onReceive={openReceive}
         />
 
         {hasNoData ? (
@@ -476,6 +524,52 @@ export default function AdminDeliveryLogs() {
             Delete <strong className="font-extrabold text-slate-900">{selectedDelivery?.company_name || 'this delivery'}</strong>? This action cannot be undone.
           </p>
           {deleteMutation.isError ? <Alert severity="error" sx={{ mt: 2 }}>Failed to delete delivery record.</Alert> : null}
+        </ModalShell>
+
+        <ModalShell
+          open={receiveOpen}
+          onClose={() => setReceiveOpen(false)}
+          title="Mark Delivery as Received"
+          subtitle="Enter verification details"
+          icon={FaTruck}
+          size="sm"
+          actions={(
+            <>
+              <button type="button" className="delivery-modal__btn is-secondary" onClick={() => setReceiveOpen(false)}>Cancel</button>
+              <button
+                type="button"
+                className="delivery-modal__btn is-primary"
+                onClick={submitReceive}
+                disabled={receiveReleaseMutation.isPending}
+              >
+                {receiveReleaseMutation.isPending ? 'Marking...' : 'Mark as Received'}
+              </button>
+            </>
+          )}
+        >
+          <form onSubmit={submitReceive} className="space-y-4">
+            <Field label="Reference Code">
+              <input
+                type="text"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none"
+                value={receiveForm.reference_code}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, reference_code: e.target.value }))}
+                placeholder="Enter reference code"
+                required
+              />
+            </Field>
+            <Field label="Received By">
+              <input
+                type="text"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none"
+                value={receiveForm.received_by}
+                onChange={(e) => setReceiveForm((prev) => ({ ...prev, received_by: e.target.value }))}
+                placeholder="Name of person receiving"
+                required
+              />
+            </Field>
+            {receiveError && <Alert severity="error">{receiveError}</Alert>}
+          </form>
         </ModalShell>
       </div>
     </section>

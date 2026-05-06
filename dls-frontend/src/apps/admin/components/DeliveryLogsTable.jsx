@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { FaRegEye, FaRegEyeSlash, FaRegTrashAlt } from 'react-icons/fa';
+import { FaRegEye, FaRegEyeSlash, FaRegTrashAlt, FaCheckCircle } from 'react-icons/fa';
 import { FaPenToSquare } from 'react-icons/fa6';
 
 const SKELETON_ROWS = 8;
 
-const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) => {
+const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete, onReceive }) => {
   const [showReferenceCodes, setShowReferenceCodes] = useState(false);
 
   const getDeliveryItemsSummary = (delivery) => {
@@ -135,7 +135,7 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
               <td>{getTotalItems(delivery)}</td>
               <td>{delivery.deliverer_name || '—'}</td>
               <td>{delivery.courier_type_name || delivery.delivery_partner || '—'}</td>
-              <td>{delivery.description || '—'}</td>
+              <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={delivery.description || undefined}>{delivery.description || '—'}</td>
               <td>{delivery.received_by || '—'}</td>
               <td>
                 <div className="delivery-logs-table__datetime">
@@ -176,6 +176,19 @@ const DeliveryLogsTable = ({ deliveries, isLoading, onView, onEdit, onDelete }) 
                   >
                     <FaPenToSquare />
                   </button>
+                  {String(delivery.is_status || '').toLowerCase() === 'pending' ? (
+                    <button
+                      type="button"
+                      className="delivery-logs-table__action"
+                      aria-label="Mark as received"
+                      data-tooltip="Receive"
+                      title="Mark as received"
+                      onClick={() => onReceive?.(delivery)}
+                      style={{ color: '#10b981' }}
+                    >
+                      <FaCheckCircle />
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="delivery-logs-table__action"
