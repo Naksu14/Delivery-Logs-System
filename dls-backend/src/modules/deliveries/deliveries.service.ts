@@ -127,10 +127,20 @@ export class DeliveriesService {
         normalizedDto.courier_type_name = undefined;
         normalizedDto.supplier_description = normalizedDto.supplier_description.trim();
       } else {
-        const courierPartner = await this.assertCourierPartner(normalizedDto.delivery_partner);
-        normalizedDto.delivery_partner = courierPartner.name || courierPartner.type;
-        normalizedDto.courier_type_name = normalizedDto.courier_type_name?.trim() || courierPartner.name || undefined;
-        normalizedDto.supplier_description = undefined;
+        const isOtherManual = String(normalizedDto.delivery_partner || '').trim().toLowerCase() === 'other' &&
+          String(normalizedDto.courier_type_name || '').trim().length > 0;
+
+        if (isOtherManual) {
+          // allow manual courier name when user selected "Other" on frontend
+          normalizedDto.delivery_partner = 'Other';
+          normalizedDto.courier_type_name = normalizedDto.courier_type_name?.trim() || undefined;
+          normalizedDto.supplier_description = undefined;
+        } else {
+          const courierPartner = await this.assertCourierPartner(normalizedDto.delivery_partner);
+          normalizedDto.delivery_partner = courierPartner.name || courierPartner.type;
+          normalizedDto.courier_type_name = normalizedDto.courier_type_name?.trim() || courierPartner.name || undefined;
+          normalizedDto.supplier_description = undefined;
+        }
       }
 
       if (normalizedDto.delivery_for === 'Individual' && !normalizedDto.company_name) {
@@ -235,10 +245,19 @@ export class DeliveriesService {
         normalizedDto.courier_type_name = undefined;
         normalizedDto.supplier_description = normalizedDto.supplier_description.trim();
       } else {
-        const courierPartner = await this.assertCourierPartner(normalizedDto.delivery_partner);
-        normalizedDto.delivery_partner = courierPartner.name || courierPartner.type;
-        normalizedDto.courier_type_name = normalizedDto.courier_type_name?.trim() || courierPartner.name || undefined;
-        normalizedDto.supplier_description = undefined;
+        const isOtherManual = String(normalizedDto.delivery_partner || '').trim().toLowerCase() === 'other' &&
+          String(normalizedDto.courier_type_name || '').trim().length > 0;
+
+        if (isOtherManual) {
+          normalizedDto.delivery_partner = 'Other';
+          normalizedDto.courier_type_name = normalizedDto.courier_type_name?.trim() || undefined;
+          normalizedDto.supplier_description = undefined;
+        } else {
+          const courierPartner = await this.assertCourierPartner(normalizedDto.delivery_partner);
+          normalizedDto.delivery_partner = courierPartner.name || courierPartner.type;
+          normalizedDto.courier_type_name = normalizedDto.courier_type_name?.trim() || courierPartner.name || undefined;
+          normalizedDto.supplier_description = undefined;
+        }
       }
     }
     if (normalizedDto.delivery_for === 'Individual') {

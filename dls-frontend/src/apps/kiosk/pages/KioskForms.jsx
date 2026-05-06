@@ -334,7 +334,10 @@ export default function KioskForms() {
       )
     )
 
-    return partners.length > 0 ? partners : defaultDeliveryPartnerOptions
+    // always add an "Other" option to allow manual courier input
+    const withOther = partners.length > 0 ? [...partners] : [...defaultDeliveryPartnerOptions]
+    if (!withOther.includes('Other')) withOther.push('Other')
+    return withOther
   }, [deliveryPartners])
 
   const deliveryByTypeOptions = useMemo(() => {
@@ -469,7 +472,8 @@ export default function KioskForms() {
       setFormData((prev) => ({
         ...prev,
         deliveryPartner: value,
-        courierTypeName: value
+        // if user selects Other, clear manual courier name so they can type it
+        courierTypeName: value === 'Other' ? '' : value
       }))
       return
     }
@@ -515,6 +519,11 @@ export default function KioskForms() {
       return
     }
 
+    if (formData.deliveryByType === 'Courier' && formData.deliveryPartner === 'Other' && !String(formData.courierTypeName || '').trim()) {
+      setSubmitError('Please type the courier partner name when selecting Other.')
+      return
+    }
+
     setFormData((prev) => ({
       ...prev,
       deliveryItems: preparedDeliveryItems,
@@ -524,6 +533,12 @@ export default function KioskForms() {
     if (activeElement instanceof HTMLElement) {
       activeElement.blur()
     }
+    // validate courier manual input when "Other" is selected
+    if (formData.deliveryByType === 'Courier' && formData.deliveryPartner === 'Other' && !String(formData.courierTypeName || '').trim()) {
+      setSubmitError('Please type the courier partner name when selecting Other.')
+      return
+    }
+
     setTimeout(() => {
       setShowSummary(true)
     }, 0)
@@ -586,7 +601,13 @@ export default function KioskForms() {
       delivery_items: normalizedDeliveryItems,
       total_items: totalItemCount,
       delivery_partner: formData.deliveryByType === 'Supplier' ? 'Supplier' : formData.deliveryPartner,
-      courier_type_name: formData.deliveryByType === 'Courier' ? formData.deliveryPartner : undefined,
+      // prefer manual courier name when user selected Other
+      courier_type_name:
+        formData.deliveryByType === 'Courier'
+          ? formData.deliveryPartner === 'Other'
+            ? formData.courierTypeName
+            : formData.deliveryPartner
+          : undefined,
       supplier_description: formData.deliveryByType === 'Supplier' ? formData.supplierDescription : undefined,
       deliverer_name: formData.delivererName,
       description: formData.description,
@@ -1029,6 +1050,25 @@ export default function KioskForms() {
                       ))}
                     </Select>
                   </FormControl>
+
+                  {formData.deliveryPartner === 'Other' ? (
+                    <TextField
+                      fullWidth
+                      name="courierTypeName"
+                      value={formData.courierTypeName}
+                      onChange={onChange}
+                      placeholder="Type courier partner name"
+                      required
+                      sx={{ ...fieldSx, mt: 2 }}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <FaTruck size={18} style={{ color: COLORS.primaryBrown }} />
+                          </InputAdornment>
+                        )
+                      }}
+                    />
+                  ) : null}
                   {isDeliveryPartnersError && (
                     <Typography sx={{ mt: 1, fontSize: '0.9rem', color: '#b45309' }}>
                       Could not load courier partners. Please refresh and try again.
