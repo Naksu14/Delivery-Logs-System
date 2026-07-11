@@ -400,6 +400,33 @@ export default function AdminDeliveryLogs() {
           </section>
 
           <section className="rounded-[22px] border border-slate-200 bg-white p-4 mt-4">
+            <h3 className="mb-4 text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">Proof of Delivery</h3>
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+              {selectedDelivery?.proof_image_url ? (
+                <a
+                  href={selectedDelivery.proof_image_url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="delivery-proof-card max-h-[260px] w-full max-w-[420px] overflow-hidden rounded-3xl border border-slate-200 bg-slate-50"
+                >
+                  <img
+                    src={selectedDelivery.proof_image_url}
+                    alt="Proof of delivery"
+                    className="delivery-proof-card__image"
+                  />
+                  <div className="delivery-proof-card__overlay">
+                    <span>View full image</span>
+                  </div>
+                </a>
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                  Proof image not available.
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-[22px] border border-slate-200 bg-white p-4 mt-4">
             <h3 className="mb-4 text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">Receiver Signature</h3>
             <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
               {selectedDelivery?.receiver_signature ? (

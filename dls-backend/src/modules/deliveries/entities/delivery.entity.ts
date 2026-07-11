@@ -50,6 +50,9 @@ export class Delivery {
   @Column({ type: 'varchar', length: 200, nullable: true })
   received_by?: string;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  proof_image_url?: string;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at!: Date;
 

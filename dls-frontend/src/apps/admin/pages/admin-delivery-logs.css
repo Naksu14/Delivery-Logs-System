@@ -258,6 +258,43 @@
   width: 28px;
 }
 
+.delivery-proof-card {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 1.5rem;
+}
+
+.delivery-proof-card__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.delivery-proof-card__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.25);
+  color: #f8fafc;
+  font-size: 0.95rem;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.delivery-proof-card:hover .delivery-proof-card__image {
+  transform: scale(1.03);
+}
+
+.delivery-proof-card:hover .delivery-proof-card__overlay {
+  opacity: 1;
+}
+
 .delivery-logs-table__action:hover {
   background: #e7eaef;
   border-color: var(--dls-accent-strong);

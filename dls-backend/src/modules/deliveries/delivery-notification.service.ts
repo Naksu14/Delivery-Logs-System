@@ -3,6 +3,7 @@ import { Delivery } from './entities/delivery.entity';
 import { CompaniesService } from '../companies/companies.service';
 import { DeliveryEmailService } from './delivery-email.service';
 import { Company } from '../companies/entities/company.entity';
+import { ImageUtil } from './image.util';
 
 @Injectable()
 export class DeliveryNotificationService {
@@ -51,7 +52,8 @@ export class DeliveryNotificationService {
   }
 
   private buildSubject(companyName: string, referenceCode: string): string {
-    return `New delivery logged for ${companyName}`;
+    // UPDATED: Email Subject line updated with branding layout
+    return `Launchpad Coworking Delivery Notification to ${companyName}`;
   }
 
   private formatDeliveryItems(delivery: Delivery): string {
@@ -78,8 +80,11 @@ export class DeliveryNotificationService {
     const deliveredTo = delivery.recipient_name || companyName || 'Not provided';
     const deliveryType = this.formatDeliveryItems(delivery);
     const totalItems = Number(delivery.total_items || 0) || 1;
+    const proofText = delivery.proof_image_url ? `Proof of delivery image: ${delivery.proof_image_url}` : '';
 
     return [
+      `Launchpad Coworking Delivery Notification to ${companyName}`,
+      '',
       `A new delivery has been logged for ${companyName}.`,
       '',
       `Company: ${companyName}`,
@@ -89,12 +94,16 @@ export class DeliveryNotificationService {
       `Delivery partner: ${partner}`,
       `Reference code: ${referenceCode}`,
       `Received on: ${this.formatDate(delivery.date_received)}`,
+      proofText ? '' : '',
+      proofText,
       '',
       `Delivery details/message:`,
       message,
       '',
       'Use the reference_code above in the kiosk system to verify and access the delivery before marking it as received.',
-    ].join('\n');
+    ]
+      .filter((line) => line !== '')
+      .join('\n');
   }
 
   private buildHtml(delivery: Delivery, companyName: string): string {
@@ -111,7 +120,7 @@ export class DeliveryNotificationService {
       <div style="margin:0;padding:0;background:${this.theme.pageBackground};font-family:Arial,Helvetica,sans-serif;color:${this.theme.text};">
         <div style="max-width:720px;margin:0 auto;padding:32px 16px;">
           <div style="background:linear-gradient(135deg,${this.theme.heading} 0%,${this.theme.accentStrong} 100%);border-radius:20px 20px 0 0;padding:28px 32px;color:#fff;">
-            <div style="font-size:13px;letter-spacing:.12em;text-transform:uppercase;opacity:.8;">Delivery Logs System</div>
+            <div style="font-size:13px;letter-spacing:.12em;text-transform:uppercase;opacity:.8;">Launchpad Coworking Delivery Notification to '${companyLabel}'</div>
             <h1 style="margin:10px 0 0;font-size:28px;line-height:1.2;">New delivery logged for ${companyLabel}</h1>
           </div>
 
@@ -157,6 +166,14 @@ export class DeliveryNotificationService {
 
             <div style="margin-bottom:12px;font-size:15px;font-weight:700;color:${this.theme.heading};">Delivery details / message</div>
             <div style="background:${this.theme.surfaceSoft};border:1px solid ${this.theme.border};border-radius:16px;padding:18px 20px;font-size:15px;line-height:1.7;color:${this.theme.text};white-space:pre-line;">${message}</div>
+            ${delivery.proof_image_url ? `
+            <div style="margin-top:24px;">
+              <div style="font-size:14px;font-weight:700;color:${this.theme.heading};margin-bottom:8px;">Proof of delivery attachment</div>
+              <div style="display:block;max-width:100%;border:1px solid ${this.theme.border};border-radius:16px;overflow:hidden;">
+                <img src="cid:proof-image" alt="Proof of delivery image" style="display:block;width:100%;height:auto;max-height:360px;object-fit:cover;" />
+              </div>
+            </div>
+            ` : ''}
           </div>
         </div>
       </div>
@@ -164,50 +181,78 @@ export class DeliveryNotificationService {
   }
 
   async sendNewDeliveryNotification(delivery: Delivery): Promise<void> {
-    if ((delivery.delivery_for || '').trim() !== 'Company') {
-      this.logger.debug(`Skipping notification for delivery ${delivery.id} because it is not a company delivery`);
-      return;
-    }
-
-    const companyName = (delivery.company_name || '').trim();
-    if (!companyName) {
-      this.logger.debug(`Skipping notification for delivery ${delivery.id} because no company name was provided`);
-      return;
-    }
-
-    const company = await this.companiesService.findByCompanyName(companyName);
-    if (!company) {
-      this.logger.warn(
-        `Skipping notification for delivery ${delivery.id} because no company record matched "${companyName}"`,
-      );
-      return;
-    }
-
-    const recipients = this.buildRecipients(company);
-    if (!recipients.length) {
-      this.logger.warn(
-        `Skipping notification for delivery ${delivery.id} because company "${company.company_name}" has no email recipients`,
-      );
-      return;
-    }
-
-    const subject = this.buildSubject(company.company_name, delivery.reference_code || 'N/A');
-    const html = this.buildHtml(delivery, company.company_name);
-    const text = this.buildPlainText(delivery, company.company_name);
-
     try {
-      await this.deliveryEmailService.sendWithRetry({
-        to: recipients,
-        subject,
-        html,
-        text,
-      });
-      this.logger.log(
-        `Delivery notification sent for delivery ${delivery.id} to ${recipients.join(', ')} (${company.company_name})`,
-      );
+      if ((delivery.delivery_for || '').trim() !== 'Company') {
+        this.logger.debug(`Skipping notification for delivery ${delivery.id} because it is not a company delivery`);
+        return;
+      }
+
+      const companyName = (delivery.company_name || '').trim();
+      if (!companyName) {
+        this.logger.debug(`Skipping notification for delivery ${delivery.id} because no company name was provided`);
+        return;
+      }
+
+      const company = await this.companiesService.findByCompanyName(companyName);
+      if (!company) {
+        this.logger.warn(
+          `Skipping notification for delivery ${delivery.id} because no company record matched "${companyName}"`,
+        );
+        return;
+      }
+
+      const recipients = this.buildRecipients(company);
+      if (!recipients.length) {
+        this.logger.warn(
+          `Skipping notification for delivery ${delivery.id} because company "${company.company_name}" has no email recipients`,
+        );
+        return;
+      }
+
+      const subject = this.buildSubject(company.company_name, delivery.reference_code || 'N/A');
+      const html = this.buildHtml(delivery, company.company_name);
+      const text = this.buildPlainText(delivery, company.company_name);
+
+      // Prepare image attachment if proof image exists
+      const attachments: Array<{ filename: string; path: string; cid: string }> = [];
+      if (delivery.proof_image_url) {
+        const filename = ImageUtil.extractFilenameFromUrl(delivery.proof_image_url);
+        if (filename) {
+          const filePath = ImageUtil.getImageFilePath(filename);
+          if (filePath) {
+            attachments.push({
+              filename: filename,
+              path: filePath,
+              cid: 'proof-image', // Content-ID for referencing in HTML
+            });
+            this.logger.debug(`Attached proof image for delivery ${delivery.id}: ${filename}`);
+          } else {
+            this.logger.warn(
+              `Could not find proof image file for delivery ${delivery.id}: ${delivery.proof_image_url}`,
+            );
+          }
+        }
+      }
+
+      try {
+        await this.deliveryEmailService.sendWithRetry({
+          to: recipients,
+          subject,
+          html,
+          text,
+          attachments: attachments.length > 0 ? attachments : undefined,
+        });
+        this.logger.log(
+          `Delivery notification sent for delivery ${delivery.id} to ${recipients.join(', ')} (${company.company_name})`,
+        );
+      } catch (emailError) {
+        this.logger.error(
+          `Delivery notification failed for delivery ${delivery.id} (${company.company_name}): ${String(emailError)}`,
+        );
+      }
     } catch (error) {
       this.logger.error(
-        `Delivery notification failed for delivery ${delivery.id} (${company.company_name}): ${String(error)}`,
+        `Unexpected error in delivery notification for delivery ${delivery.id}: ${String(error)}`,
       );
     }
   }

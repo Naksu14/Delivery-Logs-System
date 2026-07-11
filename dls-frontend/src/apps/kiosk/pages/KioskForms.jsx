@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -17,7 +17,7 @@ import {
   Typography
 } from '@mui/material'
 
-import { FaBoxOpen, FaBuilding, FaRegFileAlt, FaTrashAlt, FaTruck, FaUser } from 'react-icons/fa'
+import { FaBoxOpen, FaBuilding, FaRegFileAlt, FaTrashAlt, FaTruck, FaUser, FaCamera } from 'react-icons/fa'
 import { IoArrowBack } from 'react-icons/io5'
 
 import { getCompanies } from '../../../services/companyAPIServices'
@@ -260,6 +260,9 @@ export default function KioskForms() {
   const [showSummary, setShowSummary] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [proofImageFile, setProofImageFile] = useState(null)
+  const [proofImagePreview, setProofImagePreview] = useState('')
+  const proofImageInputRef = useRef(null)
   const canRenderBlobs = isRenderableComponent(KioskBlobsBackground)
   const canRenderSummaryModal = isRenderableComponent(DeliverySummaryModal)
 
@@ -394,6 +397,32 @@ export default function KioskForms() {
     }
   }, [formData, companies, currentDateReceived, totalItems])
 
+  const formatFileSize = (sizeInBytes) => {
+    if (!Number.isFinite(sizeInBytes) || sizeInBytes <= 0) return '0 MB'
+    return `${(sizeInBytes / (1024 * 1024)).toFixed(2)} MB`
+  }
+
+  const handleProofImageChange = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setSubmitted(false)
+    setSubmitError('')
+    setProofImageFile(file)
+    setProofImagePreview(URL.createObjectURL(file))
+  }
+
+  const removeProofImage = () => {
+    if (proofImagePreview) {
+      URL.revokeObjectURL(proofImagePreview)
+    }
+    setProofImageFile(null)
+    setProofImagePreview('')
+    if (proofImageInputRef.current) {
+      proofImageInputRef.current.value = ''
+    }
+  }
+
   const addDeliveryItem = () => {
     setSubmitted(false)
     setSubmitError('')
@@ -519,8 +548,33 @@ export default function KioskForms() {
       return
     }
 
+    if (!String(formData.deliveryByType || '').trim()) {
+      setSubmitError('Please select a delivery method before submitting.')
+      return
+    }
+
+    if (formData.deliveryByType === 'Courier' && !String(formData.deliveryPartner || '').trim()) {
+      setSubmitError('Please select a courier partner.')
+      return
+    }
+
+    if (formData.deliveryByType === 'Supplier' && !String(formData.supplierDescription || '').trim()) {
+      setSubmitError('Please provide supplier information.')
+      return
+    }
+
+    if (formData.deliveryByType === 'Courier' && !String(formData.deliveryPartner || '').trim()) {
+      setSubmitError('Please select a courier partner.')
+      return
+    }
+
     if (formData.deliveryByType === 'Courier' && formData.deliveryPartner === 'Other' && !String(formData.courierTypeName || '').trim()) {
       setSubmitError('Please type the courier partner name when selecting Other.')
+      return
+    }
+
+    if (formData.deliveryFor === 'Company' && formData.companyId === 'Not Listed' && !String(formData.companyNameManual || '').trim()) {
+      setSubmitError('Please provide the company name when Not Listed is selected.')
       return
     }
 
@@ -592,30 +646,44 @@ export default function KioskForms() {
             ? getCompanyLabel(selectedCompany)
             : ''
 
-    const logData = {
-      date_received: submittedAt.toISOString(),
-      delivery_for: formData.deliveryFor,
-      recipient_name: formData.recipientName,
-      company_name: companyNameValue,
-      delivery_type: deliveryTypeSummary,
-      delivery_items: normalizedDeliveryItems,
-      total_items: totalItemCount,
-      delivery_partner: formData.deliveryByType === 'Supplier' ? 'Supplier' : formData.deliveryPartner,
-      // prefer manual courier name when user selected Other
-      courier_type_name:
-        formData.deliveryByType === 'Courier'
-          ? formData.deliveryPartner === 'Other'
-            ? formData.courierTypeName
-            : formData.deliveryPartner
-          : undefined,
-      supplier_description: formData.deliveryByType === 'Supplier' ? formData.supplierDescription : undefined,
-      deliverer_name: formData.delivererName,
-      description: formData.description,
-      is_status: formData.is_status,
-      received_at: submittedAt.toISOString()
+    const formPayload = new FormData()
+    formPayload.append('date_received', submittedAt.toISOString())
+    formPayload.append('delivery_for', formData.deliveryFor)
+    formPayload.append('recipient_name', formData.recipientName)
+    formPayload.append('company_name', companyNameValue)
+    formPayload.append('delivery_type', deliveryTypeSummary)
+    formPayload.append('delivery_items', JSON.stringify(normalizedDeliveryItems))
+    formPayload.append('total_items', String(totalItemCount))
+    formPayload.append('delivery_partner', formData.deliveryByType === 'Supplier' ? 'Supplier' : formData.deliveryPartner)
+    formPayload.append('deliveryByType', formData.deliveryByType)
+
+    if (formData.deliveryByType === 'Courier') {
+      const courierName = formData.deliveryPartner === 'Other' ? formData.courierTypeName : formData.deliveryPartner
+      if (courierName) {
+        formPayload.append('courier_type_name', courierName)
+      }
     }
 
-    createLogMutation.mutate(logData)
+    if (formData.deliveryByType === 'Supplier' && formData.supplierDescription) {
+      formPayload.append('supplier_description', formData.supplierDescription)
+    }
+
+    if (formData.delivererName) {
+      formPayload.append('deliverer_name', formData.delivererName)
+    }
+
+    if (formData.description) {
+      formPayload.append('description', formData.description)
+    }
+
+    formPayload.append('is_status', formData.is_status)
+    formPayload.append('received_at', submittedAt.toISOString())
+
+    if (proofImageFile) {
+      formPayload.append('proof_image', proofImageFile)
+    }
+
+    createLogMutation.mutate(formPayload)
   }
 
   return (
@@ -1105,6 +1173,114 @@ export default function KioskForms() {
                   <div className="hidden xl:block" aria-hidden="true" />
                 ) : null}
             </div>
+            </Box>
+
+            {/* Proof of Delivery Section */}
+            <Box sx={{ pb: 4, borderBottom: '1px solid #e8e8e8' }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel icon={FaRegFileAlt} text="Proof of Delivery" />
+                  <Typography sx={{ fontSize: '0.92rem', color: COLORS.textMuted, mb: 1.5 }}>
+                    Optional photo or document upload for delivery verification.
+                  </Typography>
+                  <input
+                    ref={proofImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleProofImageChange}
+                    style={{ display: 'none' }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => proofImageInputRef.current?.click()}
+                    startIcon={<FaCamera size={18} style={{ color: COLORS.primaryBrown }} />}
+                    sx={{
+                      height: 48,
+                      px: 4,
+                      borderRadius: '12px',
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      color: COLORS.primaryBrown,
+                      backgroundColor: '#f8f8f8',
+                      border: '1px solid #e0e0e0',
+                      '&:hover': {
+                        backgroundColor: '#f2f2f2',
+                      }
+                    }}
+                  >
+                    {proofImageFile ? 'Change Image' : 'Capture or Upload Image'}
+                  </Button>
+                </div>
+
+                <div>
+                  {proofImagePreview ? (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '16px',
+                        p: 2,
+                        backgroundColor: '#fafafa'
+                      }}
+                    >
+                      <Box
+                        component="img"
+                        src={proofImagePreview}
+                        alt="Proof preview"
+                        sx={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: '16px',
+                          objectFit: 'cover',
+                          border: '1px solid #d1d5db'
+                        }}
+                      />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, color: COLORS.primaryBrown, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {proofImageFile?.name}
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.85rem', color: COLORS.textMuted, mt: 0.5 }}>
+                          {formatFileSize(proofImageFile?.size)}
+                        </Typography>
+                        <Button
+                          type="button"
+                          onClick={removeProofImage}
+                          sx={{
+                            mt: 1,
+                            p: 0,
+                            minWidth: 0,
+                            color: '#dc2626',
+                            textTransform: 'none',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Remove Image
+                        </Button>
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Box
+                      sx={{
+                        minHeight: 120,
+                        border: '1px dashed #d1d5db',
+                        borderRadius: '16px',
+                        p: 3,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: '#fafafa'
+                      }}
+                    >
+                      <Typography sx={{ color: COLORS.textMuted, fontSize: '0.95rem', textAlign: 'center' }}>
+                        No proof image selected yet.
+                      </Typography>
+                    </Box>
+                  )}
+                </div>
+              </div>
             </Box>
 
             {/* Additional Information Section */}

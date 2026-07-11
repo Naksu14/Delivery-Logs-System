@@ -10,7 +10,7 @@ export const createDeliveryLog = async (logData) => {
   try {
     const response = await api.post("/deliveries", logData);
     return response.data;
-    } catch (error) {
+  } catch (error) {
     console.error("Error creating delivery log:", error);
     throw error;
   }

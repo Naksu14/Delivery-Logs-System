@@ -11,13 +11,14 @@ import {
 	Min,
 	ArrayNotEmpty,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export class DeliveryItemDto {
 	@IsString()
 	@IsNotEmpty()
 	name!: string;
 
+	@Type(() => Number)
 	@IsInt()
 	@Min(1)
 	quantity!: number;
@@ -41,6 +42,16 @@ export class CreateDeliveryDto {
 	company_name!: string;
 
 	@IsOptional()
+	@Transform(({ value }) => {
+		if (typeof value === 'string') {
+			try {
+				return JSON.parse(value);
+			} catch {
+				return value;
+			}
+		}
+		return value;
+	})
 	@IsArray()
 	@ArrayNotEmpty()
 	@ValidateNested({ each: true })
@@ -53,6 +64,7 @@ export class CreateDeliveryDto {
 	delivery_type!: string;
 
 	@IsOptional()
+	@Type(() => Number)
 	@IsInt()
 	@Min(1)
 	total_items?: number;
@@ -75,6 +87,10 @@ export class CreateDeliveryDto {
 	@IsOptional()
 	@IsString()
 	description?: string;
+
+	@IsOptional()
+	@IsString()
+	proof_image_url?: string;
 
 	@IsOptional()
 	@IsString()

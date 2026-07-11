@@ -9,6 +9,7 @@ type EmailPayload = {
   html: string;
   text: string;
   from?: string;
+  attachments?: Array<{ filename: string; path: string; cid: string }>;
 };
 
 @Injectable()
@@ -63,6 +64,7 @@ export class DeliveryEmailService {
       subject: payload.subject,
       html: payload.html,
       text: payload.text,
+      attachments: payload.attachments,
     };
 
     const maxAttempts = 3;

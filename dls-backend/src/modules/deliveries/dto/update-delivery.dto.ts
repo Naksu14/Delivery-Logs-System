@@ -42,6 +42,7 @@ export class UpdateDeliveryDto {
 	delivery_type?: string;
 
 	@IsOptional()
+	@Type(() => Number)
 	@IsInt()
 	@Min(1)
 	total_items?: number;
@@ -65,6 +66,10 @@ export class UpdateDeliveryDto {
 	@IsOptional()
 	@IsString()
 	description?: string;
+
+	@IsOptional()
+	@IsString()
+	proof_image_url?: string;
 
 	@IsOptional()
 	@IsString()

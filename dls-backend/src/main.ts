@@ -1,9 +1,20 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule) as NestExpressApplication;
+  const uploadRoot = join(__dirname, '..', 'uploads');
+  const proofImageDir = join(uploadRoot, 'proof-images');
+
+  if (!existsSync(proofImageDir)) {
+    mkdirSync(proofImageDir, { recursive: true });
+  }
+
+  app.useStaticAssets(uploadRoot, { prefix: '/uploads/' });
 
   app.enableCors({
     origin: ['http://localhost:5185', 'http://192.168.200.15:5185', 'http://192.168.110.50:5185'],

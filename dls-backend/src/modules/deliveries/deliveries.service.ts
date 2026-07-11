@@ -110,6 +110,19 @@ export class DeliveriesService {
   async create(createDeliveryDto: CreateDeliveryDto): Promise<Delivery> {
     try {
       const normalizedDto = { ...createDeliveryDto };
+
+      if (typeof normalizedDto.delivery_items === 'string') {
+        try {
+          normalizedDto.delivery_items = JSON.parse(normalizedDto.delivery_items as string);
+        } catch {
+          normalizedDto.delivery_items = [];
+        }
+      }
+
+      if (typeof normalizedDto.total_items === 'string') {
+        normalizedDto.total_items = Number(normalizedDto.total_items);
+      }
+
       const deliveryItemState = this.normalizeDeliveryItems(
         normalizedDto.delivery_items,
         normalizedDto.delivery_type,
